@@ -19,6 +19,7 @@ import cn.erindax.bcya.client.music.ClientMusicBlocks;
 import cn.erindax.bcya.client.music.MusicBlockRenderer;
 import cn.erindax.bcya.client.music.MusicPlayer;
 import cn.erindax.bcya.client.music.MusicUploader;
+import cn.erindax.bcya.client.render.CardSkinRenderer;
 import cn.erindax.bcya.client.render.KeyItemRenderer;
 import cn.erindax.bcya.client.render.MaskModelLayer;
 import cn.erindax.bcya.client.render.MaskSkins;
@@ -147,6 +148,7 @@ public class BcyaModClient implements ClientModInitializer {
 			ClientMusic.clear();
 			ClientMusicBlocks.clear();
 			MusicUploader.reset();
+			CardSkinRenderer.clear();
 		});
 
 		BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.BARRIER_PANEL, RenderType.cutout());

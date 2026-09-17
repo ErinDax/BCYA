@@ -21,8 +21,12 @@ import org.joml.Vector3f;
 public final class CardSkinRenderer {
 
 	private static final float SIDE_ANGLE = 30.0F;
+	private static final Vector3f TRANSLATION = new Vector3f(0.0F, 0.9F, 0.0F);
+	private static final Quaternionf BODY_ROT = new Quaternionf().rotateZ((float) Math.PI);
+	private static final Quaternionf VIEW_ROT = new Quaternionf().rotateX((float) Math.toRadians(6.0F));
 	private static final Map<String, Supplier<PlayerSkin>> SKIN_CACHE = new HashMap<>();
-	private static final Map<UUID, CardPlayer> DUMMY_CACHE = new HashMap<>();
+
+	private static CardPlayer dummy;
 
 	private CardSkinRenderer() {
 	}
@@ -31,7 +35,7 @@ public final class CardSkinRenderer {
 			UUID ownerId, String ownerName, String skinValue, String skinSig) {
 		Minecraft minecraft = Minecraft.getInstance();
 		ClientLevel level = minecraft.level;
-		if (level == null) {
+		if (level == null || x1 <= x0 || y1 <= y0) {
 			return;
 		}
 		if (ownerId == null) {
@@ -39,14 +43,12 @@ public final class CardSkinRenderer {
 		}
 		PlayerSkin skin = skinSupplier(ownerId, ownerName, skinValue, skinSig).get();
 
-		CardPlayer dummy = DUMMY_CACHE.get(ownerId);
 		if (dummy == null || dummy.level() != level) {
 			dummy = new CardPlayer(level, new GameProfile(ownerId, ownerName == null ? "" : ownerName));
-			DUMMY_CACHE.put(ownerId, dummy);
 		}
 		dummy.skin = skin;
 
-		float yaw = 180.0F + SIDE_ANGLE;
+		float yaw = 180.0F - SIDE_ANGLE;
 		dummy.yBodyRot = yaw;
 		dummy.yBodyRotO = yaw;
 		dummy.setYRot(yaw);
@@ -54,13 +56,21 @@ public final class CardSkinRenderer {
 		dummy.yHeadRot = yaw;
 		dummy.yHeadRotO = yaw;
 
-		graphics.enableScissor(x0, y0, x1, y1);
+		float boxW = x1 - x0;
+		float boxH = y1 - y0;
+		float scale = Math.min(boxW / 1.35F, boxH / 2.12F);
 		float centerX = (x0 + x1) / 2.0F;
 		float centerY = (y0 + y1) / 2.0F;
-		InventoryScreen.renderEntityInInventory(graphics, centerX, centerY, 44.0F,
-			new Vector3f(0.0F, 0.72F, 0.0F),
-			new Quaternionf().rotateZ((float) Math.PI), new Quaternionf(), dummy);
+
+		graphics.enableScissor(x0, y0, x1, y1);
+		InventoryScreen.renderEntityInInventory(graphics, centerX, centerY, scale,
+			TRANSLATION, BODY_ROT, VIEW_ROT, dummy);
 		graphics.disableScissor();
+	}
+
+	public static void clear() {
+		dummy = null;
+		SKIN_CACHE.clear();
 	}
 
 	private static Supplier<PlayerSkin> skinSupplier(UUID id, String name, String value, String signature) {

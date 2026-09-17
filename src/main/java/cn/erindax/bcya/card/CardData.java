@@ -232,6 +232,22 @@ public final class CardData {
 		return !tag.getString(INVESTIGATOR).trim().isEmpty();
 	}
 
+	public static void resetForm(CompoundTag tag) {
+		tag.putString(INVESTIGATOR, "");
+		tag.putInt(EMOTION, EMOTION_DEFAULT);
+		tag.putString(EMOTION_DEEP, "");
+		tag.putBoolean(AWAKENED, false);
+		tag.putString(ABILITY_NAME, "");
+		for (String name : ABILITY_NAMES) {
+			setAbility(tag, name, ABILITY_DEFAULT);
+		}
+		for (List<String> list : SKILL_CATEGORIES.values()) {
+			for (String name : list) {
+				setSkill(tag, name, BASE_SKILLS.contains(name) ? 1 : 0);
+			}
+		}
+	}
+
 	public static boolean tryAwaken(CompoundTag tag) {
 		String deep = tag.getString(EMOTION_DEEP).trim();
 		if (emotion(tag) >= EMOTION_MAX && !deep.isEmpty()) {

@@ -35,8 +35,10 @@ public final class CardData {
 	public static final int EMOTION_DEFAULT = 50;
 	public static final int EMOTION_MAX = 100;
 
+	public static final String ABILITY_LUCK = "运势";
+
 	public static final List<String> ABILITY_NAMES = List.of(
-		"身体", "灵巧", "精神", "五感", "知力", "魅力", "社会", "运势");
+		"身体", "灵巧", "精神", "五感", "知力", "魅力", "社会", ABILITY_LUCK);
 
 	public static final Map<String, List<String>> SKILL_CATEGORIES;
 
@@ -124,6 +126,9 @@ public final class CardData {
 			String target = null;
 			int highest = ABILITY_DEFAULT;
 			for (String name : ABILITY_NAMES) {
+				if (name.equals(ABILITY_LUCK)) {
+					continue;
+				}
 				int value = abilities.getInt(name);
 				if (value > highest) {
 					highest = value;
@@ -230,6 +235,14 @@ public final class CardData {
 
 	public static boolean requiredComplete(CompoundTag tag) {
 		return !tag.getString(INVESTIGATOR).trim().isEmpty();
+	}
+
+	public static void keepProfile(CompoundTag source, CompoundTag target) {
+		target.putInt(EMOTION, emotion(source));
+		target.putString(EMOTION_DEEP, source.getString(EMOTION_DEEP));
+		target.putBoolean(AWAKENED, source.getBoolean(AWAKENED));
+		target.putString(ABILITY_NAME, source.getString(ABILITY_NAME));
+		setAbility(target, ABILITY_LUCK, ability(source, ABILITY_LUCK));
 	}
 
 	public static void resetForm(CompoundTag tag) {

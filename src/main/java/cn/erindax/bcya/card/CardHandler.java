@@ -47,8 +47,11 @@ public final class CardHandler {
 		}
 		CompoundTag card = bindOwner(player, stack, CardData.read(stack));
 		CompoundTag ownerInfo = buildOwnerInfo(player, card);
+		boolean operator = player.hasPermissions(2);
 		boolean hasOwner = ownerInfo.getBoolean("has_owner");
-		boolean readOnly = hasOwner && !ownerInfo.getString("uuid").equals(player.getUUID().toString());
+		boolean ownCard = ownerInfo.getString("uuid").equals(player.getUUID().toString());
+		boolean readOnly = !operator && hasOwner && !ownCard;
+		ownerInfo.putBoolean("operator", operator);
 		ServerPlayNetworking.send(player, new CardOpenPayload(card, ownerInfo, readOnly,
 			hand == InteractionHand.MAIN_HAND));
 	}
@@ -65,12 +68,16 @@ public final class CardHandler {
 		}
 		CompoundTag existing = CardData.read(stack);
 		String existingOwner = existing.getString(CardData.OWNER_UUID);
-		if (!existingOwner.isEmpty() && !existingOwner.equals(player.getUUID().toString())) {
+		boolean operator = player.hasPermissions(2);
+		if (!existingOwner.isEmpty() && !existingOwner.equals(player.getUUID().toString()) && !operator) {
 			sendResult(player, false, MSG_READONLY);
 			return;
 		}
 
 		CompoundTag incoming = payload.card().copy();
+		if (!operator) {
+			CardData.keepProfile(existing, incoming);
+		}
 		incoming.putString(CardData.INVESTIGATOR, incoming.getString(CardData.INVESTIGATOR).trim());
 		if (incoming.getString(CardData.INVESTIGATOR).isEmpty()) {
 			sendResult(player, false, MSG_NEED_INVESTIGATOR);

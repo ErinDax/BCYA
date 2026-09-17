@@ -56,6 +56,7 @@ public class CardScreen extends Screen {
 	private final CompoundTag card;
 	private final boolean readOnly;
 	private final boolean mainHand;
+	private final boolean operator;
 	private final UUID ownerId;
 	private final String ownerName;
 	private final String skinValue;
@@ -79,6 +80,7 @@ public class CardScreen extends Screen {
 
 	private final List<AbstractWidget> formWidgets = new ArrayList<>();
 	private final List<Integer> formBaseY = new ArrayList<>();
+	private final List<Boolean> formProfile = new ArrayList<>();
 	private final List<Line> lines = new ArrayList<>();
 	private final List<AbstractWidget> fixedWidgets = new ArrayList<>();
 
@@ -86,12 +88,13 @@ public class CardScreen extends Screen {
 	private Button awakenButton;
 	private Button doneButton;
 
-	public CardScreen(CompoundTag card, boolean readOnly, boolean mainHand,
+	public CardScreen(CompoundTag card, boolean readOnly, boolean mainHand, boolean operator,
 			UUID ownerId, String ownerName, String skinValue, String skinSig) {
 		super(Component.translatable(P + "title"));
 		this.card = CardData.normalize(card);
 		this.readOnly = readOnly;
 		this.mainHand = mainHand;
+		this.operator = operator;
 		this.ownerId = ownerId;
 		this.ownerName = ownerName == null ? "" : ownerName;
 		this.skinValue = skinValue == null ? "" : skinValue;
@@ -103,6 +106,7 @@ public class CardScreen extends Screen {
 		super.init();
 		formWidgets.clear();
 		formBaseY.clear();
+		formProfile.clear();
 		lines.clear();
 		fixedWidgets.clear();
 		draggingScroll = false;
@@ -152,21 +156,21 @@ public class CardScreen extends Screen {
 		emotionBox.setFilter(value -> value.isEmpty()
 			|| (value.matches("\\d{0,3}") && Integer.parseInt(value) <= CardData.EMOTION_MAX));
 		emotionBox.setValue(String.valueOf(CardData.emotion(card)));
-		emotionBox.setEditable(!readOnly);
+		emotionBox.setEditable(operator);
 		emotionBox.setResponder(value -> {
 			int emotion = value.isEmpty() ? 0 : Mth.clamp(Integer.parseInt(value), 0, CardData.EMOTION_MAX);
 			card.putInt(CardData.EMOTION, emotion);
 		});
-		addForm(emotionBox, cursor);
+		addProfile(emotionBox, cursor);
 		cursor += 22;
 
 		line(textX0, cursor + 5, TEXT, () -> Component.translatable(P + "emotion_deep"));
 		EditBox deepBox = field(fieldX, cursor, fieldW, fieldH);
 		deepBox.setMaxLength(64);
 		deepBox.setValue(card.getString(CardData.EMOTION_DEEP));
-		deepBox.setEditable(!readOnly);
+		deepBox.setEditable(operator);
 		deepBox.setResponder(value -> card.putString(CardData.EMOTION_DEEP, value));
-		addForm(deepBox, cursor);
+		addProfile(deepBox, cursor);
 		cursor += 24;
 
 		line(textX0, cursor + 6, AWAKE, () -> Component.translatable(P + "awakened"));
@@ -186,10 +190,10 @@ public class CardScreen extends Screen {
 			card.putBoolean(CardData.AWAKENED, !card.getBoolean(CardData.AWAKENED));
 			button.setMessage(awakenLabel());
 		}, true);
-		awakenButton.active = !readOnly;
-		addForm(awakenButton, cursor);
-		if (!readOnly) {
-			addForm(evenButton(fieldX + btnW + btnGap, cursor, btnW, btnH, checkLabel, button -> {
+		awakenButton.active = operator;
+		addProfile(awakenButton, cursor);
+		if (operator) {
+			addProfile(evenButton(fieldX + btnW + btnGap, cursor, btnW, btnH, checkLabel, button -> {
 				boolean ok = CardData.tryAwaken(card);
 				awakenButton.setMessage(awakenLabel());
 				if (minecraft != null && minecraft.player != null) {
@@ -204,9 +208,9 @@ public class CardScreen extends Screen {
 		EditBox abilityBox = field(fieldX, cursor, fieldW, fieldH);
 		abilityBox.setMaxLength(48);
 		abilityBox.setValue(card.getString(CardData.ABILITY_NAME));
-		abilityBox.setEditable(!readOnly);
+		abilityBox.setEditable(operator);
 		abilityBox.setResponder(value -> card.putString(CardData.ABILITY_NAME, value));
-		addForm(abilityBox, cursor);
+		addProfile(abilityBox, cursor);
 		cursor += 26;
 
 		int nameW = 0;
@@ -231,7 +235,8 @@ public class CardScreen extends Screen {
 			int y = cursor + (i / 2) * 18;
 			stat(x, y, nameW, valueW, Component.literal(name), NAME,
 				() -> String.valueOf(CardData.ability(card, name)),
-				() -> decAbility(name), () -> incAbility(name));
+				() -> decAbility(name), () -> incAbility(name),
+				name.equals(CardData.ABILITY_LUCK));
 		}
 		cursor += 18 * ((CardData.ABILITY_NAMES.size() + 1) / 2) + 8;
 
@@ -246,7 +251,7 @@ public class CardScreen extends Screen {
 				boolean base = CardData.BASE_SKILLS.contains(name);
 				stat(x, y, nameW, valueW, Component.literal(name), base ? BASE : NAME,
 					() -> String.valueOf(CardData.skill(card, name)),
-					() -> decSkill(name), () -> incSkill(name));
+					() -> decSkill(name), () -> incSkill(name), false);
 			}
 			cursor += 18 * ((names.size() + 1) / 2) + 6;
 		}
@@ -259,11 +264,13 @@ public class CardScreen extends Screen {
 		Button close = evenButton(closeX, footerY, btnW, btnH, closeLabel, button -> onClose());
 		fixedWidgets.add(close);
 		addWidget(close);
-		if (!readOnly) {
+		if (operator) {
 			Button reset = evenButton(resetX, footerY, btnW, btnH, resetLabel, button -> onReset());
 			fixedWidgets.add(reset);
 			addWidget(reset);
-			doneButton = evenButton(doneX, footerY, btnW, btnH, doneLabel, button -> onDone());
+		}
+		if (!readOnly) {
+			doneButton = evenButton(operator ? doneX : resetX, footerY, btnW, btnH, doneLabel, button -> onDone());
 			fixedWidgets.add(doneButton);
 			addWidget(doneButton);
 			updateDoneState();
@@ -274,6 +281,16 @@ public class CardScreen extends Screen {
 
 	private EditBox field(int x, int y, int w, int h) {
 		EditBox box = new EditBox(font, x + 2, y, Math.max(8, w - 4), h, Component.empty()) {
+			@Override
+			public void setFocused(boolean focused) {
+				super.setFocused(focused && active);
+			}
+
+			@Override
+			public boolean mouseClicked(double mouseX, double mouseY, int button) {
+				return active && super.mouseClicked(mouseX, mouseY, button);
+			}
+
 			@Override
 			public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
 				int bx = getX() - 2;
@@ -308,15 +325,22 @@ public class CardScreen extends Screen {
 	}
 
 	private void stat(int x, int y, int nameW, int valueW, Component name, int nameColor,
-			Supplier<String> value, Runnable dec, Runnable inc) {
+			Supplier<String> value, Runnable dec, Runnable inc, boolean opOnly) {
 		line(x, y + 4, nameColor, () -> name);
 		int minusX = x + nameW + 4;
 		int slotX = minusX + 16;
 		int plusX = slotX + valueW + 8;
 		valueLine(slotX, 8 + valueW, y + 4, value);
 		if (!readOnly) {
-			addForm(smallButton(minusX, y, "-", dec), y);
-			addForm(smallButton(plusX, y, "+", inc), y);
+			Button minus = smallButton(minusX, y, "-", dec);
+			Button plus = smallButton(plusX, y, "+", inc);
+			if (opOnly) {
+				addProfile(minus, y);
+				addProfile(plus, y);
+			} else {
+				addForm(minus, y);
+				addForm(plus, y);
+			}
 		}
 	}
 
@@ -347,10 +371,19 @@ public class CardScreen extends Screen {
 		lines.add(new Line(slotX, baseY, VALUE, () -> Component.literal(value.get()), slotW));
 	}
 
+	private void addProfile(AbstractWidget widget, int baseY) {
+		addForm(widget, baseY, true);
+	}
+
 	private void addForm(AbstractWidget widget, int baseY) {
+		addForm(widget, baseY, false);
+	}
+
+	private void addForm(AbstractWidget widget, int baseY, boolean profile) {
 		widget.setY(baseY + scroll);
 		formWidgets.add(widget);
 		formBaseY.add(baseY);
+		formProfile.add(profile);
 		addWidget(widget);
 	}
 
@@ -363,6 +396,9 @@ public class CardScreen extends Screen {
 	}
 
 	private void incAbility(String name) {
+		if (name.equals(CardData.ABILITY_LUCK) && !operator) {
+			return;
+		}
 		int value = CardData.ability(card, name);
 		if (value >= CardData.ABILITY_MAX || CardData.abilitySpent(card) >= CardData.ABILITY_POINTS_TOTAL) {
 			return;
@@ -371,6 +407,9 @@ public class CardScreen extends Screen {
 	}
 
 	private void decAbility(String name) {
+		if (name.equals(CardData.ABILITY_LUCK) && !operator) {
+			return;
+		}
 		CardData.setAbility(card, name, CardData.ability(card, name) - 1);
 	}
 
@@ -386,11 +425,17 @@ public class CardScreen extends Screen {
 	}
 
 	private void onReset() {
+		if (!operator) {
+			return;
+		}
 		CardData.resetForm(card);
 		rebuildWidgets();
 	}
 
 	private void onDone() {
+		if (readOnly) {
+			return;
+		}
 		card.putString(CardData.INVESTIGATOR, investigatorBox.getValue().trim());
 		if (!CardData.requiredComplete(card)) {
 			return;
@@ -428,10 +473,10 @@ public class CardScreen extends Screen {
 			widget.setY(formBaseY.get(i) + scroll);
 			boolean show = inFormView(widget);
 			widget.visible = show;
-			if (widget instanceof EditBox) {
-				widget.active = show;
-			} else {
-				widget.active = show && !readOnly;
+			boolean allow = formProfile.get(i) ? operator : !readOnly;
+			widget.active = show && allow;
+			if (widget instanceof EditBox box) {
+				box.setEditable(allow);
 			}
 			if (!show && getFocused() == widget) {
 				setFocused(null);
@@ -513,7 +558,11 @@ public class CardScreen extends Screen {
 		if (!inForm(mouseX, mouseY)) {
 			return Optional.empty();
 		}
-		return super.getChildAt(mouseX, mouseY);
+		Optional<GuiEventListener> child = super.getChildAt(mouseX, mouseY);
+		if (child.isPresent() && child.get() instanceof AbstractWidget widget && !widget.active) {
+			return Optional.empty();
+		}
+		return child;
 	}
 
 	@Override

@@ -126,7 +126,8 @@ public class BcyaModClient implements ClientModInitializer {
 				ownerId = new UUID(0L, 0L);
 			}
 			context.client().setScreen(new CardScreen(payload.card(), payload.readOnly(), payload.mainHand(),
-				ownerId, owner.getString("name"), owner.getString("skin"), owner.getString("skin_sig")));
+				owner.getBoolean("operator"), ownerId, owner.getString("name"),
+				owner.getString("skin"), owner.getString("skin_sig")));
 		});
 		ClientPlayNetworking.registerGlobalReceiver(SaveCardResultPayload.TYPE, (payload, context) -> {
 			Minecraft client = context.client();

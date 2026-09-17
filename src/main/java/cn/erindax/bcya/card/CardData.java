@@ -26,14 +26,17 @@ public final class CardData {
 	public static final String EMOTION_DEEP = "emotion_deep";
 	public static final String AWAKENED = "awakened";
 	public static final String ABILITY_NAME = "ability_name";
+	public static final String CHECK_VALUES = "check_values";
 
-	public static final int ABILITY_DEFAULT = 1;
-	public static final int ABILITY_MAX = 5;
+	public static final int ABILITY_DEFAULT = 0;
+	public static final int ABILITY_MAX = 6;
 	public static final int ABILITY_POINTS_TOTAL = 25;
 	public static final int SKILL_POINTS_TOTAL = 30;
-	public static final int SKILL_MAX = 30;
+	public static final int SKILL_MAX = 3;
 	public static final int EMOTION_DEFAULT = 50;
 	public static final int EMOTION_MAX = 100;
+	public static final int CHECK_MIN = 1;
+	public static final int CHECK_MAX = 7;
 
 	public static final String ABILITY_LUCK = "运势";
 
@@ -43,7 +46,8 @@ public final class CardData {
 	public static final Map<String, List<String>> SKILL_CATEGORIES;
 
 	public static final Set<String> BASE_SKILLS = Set.of(
-		"调查", "知觉", "交涉", "知识", "运动", "生存");
+		"调查", "知觉", "交涉", "知识", "时讯", "运动", "格斗", "投掷",
+		"生存", "自我", "治疗", "手工", "幸运");
 
 	static {
 		Map<String, List<String>> map = new LinkedHashMap<>();
@@ -82,13 +86,19 @@ public final class CardData {
 		CompoundTag skills = out.getCompound(SKILLS);
 		for (List<String> list : SKILL_CATEGORIES.values()) {
 			for (String name : list) {
-				int min = BASE_SKILLS.contains(name) ? 1 : 0;
-				int value = skills.contains(name) ? skills.getInt(name) : min;
-				skills.putInt(name, Mth.clamp(value, min, SKILL_MAX));
+				int value = isBaseSkill(name)
+					? 1
+					: (skills.contains(name) ? skills.getInt(name) : 0);
+				skills.putInt(name, Mth.clamp(value, 0, SKILL_MAX));
 			}
 		}
 		trimSkills(skills);
 		out.put(SKILLS, skills);
+
+		if (!out.contains(CHECK_VALUES)) {
+			out.put(CHECK_VALUES, new CompoundTag());
+		}
+		recomputeAllCheckValues(out);
 
 		int emotion = out.contains(EMOTION) ? out.getInt(EMOTION) : EMOTION_DEFAULT;
 		out.putInt(EMOTION, Mth.clamp(emotion, 0, EMOTION_MAX));
@@ -120,6 +130,9 @@ public final class CardData {
 	private static void trimAbilities(CompoundTag abilities) {
 		int spent = 0;
 		for (String name : ABILITY_NAMES) {
+			if (name.equals(ABILITY_LUCK)) {
+				continue;
+			}
 			spent += abilities.getInt(name) - ABILITY_DEFAULT;
 		}
 		while (spent > ABILITY_POINTS_TOTAL) {
@@ -144,15 +157,17 @@ public final class CardData {
 	}
 
 	private static void trimSkills(CompoundTag skills) {
-		int spent = rawSkillSum(skills) - BASE_SKILLS.size();
+		int spent = skillSpentOf(skills);
 		while (spent > SKILL_POINTS_TOTAL) {
 			String target = null;
 			int highest = 0;
 			for (List<String> list : SKILL_CATEGORIES.values()) {
 				for (String name : list) {
+					if (isBaseSkill(name)) {
+						continue;
+					}
 					int value = skills.getInt(name);
-					int min = BASE_SKILLS.contains(name) ? 1 : 0;
-					if (value > min && value > highest) {
+					if (value > 0 && value > highest) {
 						highest = value;
 						target = name;
 					}
@@ -162,18 +177,37 @@ public final class CardData {
 				return;
 			}
 			skills.putInt(target, skills.getInt(target) - 1);
-			spent--;
+			spent = skillSpentOf(skills);
 		}
 	}
 
-	private static int rawSkillSum(CompoundTag skills) {
-		int sum = 0;
+	private static int skillSpentOf(CompoundTag skills) {
+		int spent = 0;
 		for (List<String> list : SKILL_CATEGORIES.values()) {
 			for (String name : list) {
-				sum += skills.getInt(name);
+				if (isBaseSkill(name)) {
+					continue;
+				}
+				spent += skillCost(skills.contains(name) ? skills.getInt(name) : 0);
 			}
 		}
-		return sum;
+		return spent;
+	}
+
+	public static int skillCost(int level) {
+		return switch (level) {
+			case 1 -> 1;
+			case 2 -> 5;
+			case 3 -> 15;
+			default -> 0;
+		};
+	}
+
+	public static int nextSkillCost(int level) {
+		if (level >= SKILL_MAX) {
+			return Integer.MAX_VALUE;
+		}
+		return skillCost(level + 1) - skillCost(level);
 	}
 
 	public static int ability(CompoundTag tag, String name) {
@@ -183,41 +217,96 @@ public final class CardData {
 	}
 
 	public static int skill(CompoundTag tag, String name) {
+		if (isBaseSkill(name)) {
+			return 1;
+		}
 		CompoundTag skills = tag.getCompound(SKILLS);
-		int min = BASE_SKILLS.contains(name) ? 1 : 0;
-		int value = skills.contains(name) ? skills.getInt(name) : min;
-		return Mth.clamp(value, min, SKILL_MAX);
+		int value = skills.contains(name) ? skills.getInt(name) : 0;
+		return Mth.clamp(value, 0, SKILL_MAX);
 	}
 
 	public static void setAbility(CompoundTag tag, String name, int value) {
 		CompoundTag abilities = tag.getCompound(ABILITIES);
 		abilities.putInt(name, Mth.clamp(value, ABILITY_DEFAULT, ABILITY_MAX));
 		tag.put(ABILITIES, abilities);
+		for (String skill : SkillTable.ABILITY_OF.keySet()) {
+			if (SkillTable.abilityOf(skill).equals(name)) {
+				recomputeCheckValue(tag, skill);
+			}
+		}
 	}
 
 	public static void setSkill(CompoundTag tag, String name, int value) {
-		int min = BASE_SKILLS.contains(name) ? 1 : 0;
+		if (isBaseSkill(name)) {
+			return;
+		}
 		CompoundTag skills = tag.getCompound(SKILLS);
-		skills.putInt(name, Mth.clamp(value, min, SKILL_MAX));
+		skills.putInt(name, Mth.clamp(value, 0, SKILL_MAX));
 		tag.put(SKILLS, skills);
+		recomputeCheckValue(tag, name);
 	}
 
 	public static int abilitySpent(CompoundTag tag) {
 		int spent = 0;
 		for (String name : ABILITY_NAMES) {
+			if (name.equals(ABILITY_LUCK)) {
+				continue;
+			}
 			spent += ability(tag, name) - ABILITY_DEFAULT;
 		}
 		return spent;
 	}
 
 	public static int skillSpent(CompoundTag tag) {
-		int sum = 0;
+		int spent = 0;
 		for (List<String> list : SKILL_CATEGORIES.values()) {
 			for (String name : list) {
-				sum += skill(tag, name);
+				if (isBaseSkill(name)) {
+					continue;
+				}
+				spent += skillCost(skill(tag, name));
 			}
 		}
-		return Math.max(0, sum - BASE_SKILLS.size());
+		return spent;
+	}
+
+	public static int computeCheckValue(CompoundTag tag, String skill) {
+		int value = ability(tag, SkillTable.abilityOf(skill)) + skill(tag, skill) - 1 + SkillTable.bonus(skill);
+		return Mth.clamp(value, CHECK_MIN, CHECK_MAX);
+	}
+
+	public static int checkValue(CompoundTag tag, String skill) {
+		CompoundTag values = tag.getCompound(CHECK_VALUES);
+		if (values.contains(skill)) {
+			return Mth.clamp(values.getInt(skill), CHECK_MIN, CHECK_MAX);
+		}
+		return computeCheckValue(tag, skill);
+	}
+
+	public static int checkModifier(int checkValue) {
+		int value = Mth.clamp(checkValue, CHECK_MIN, CHECK_MAX);
+		if (value <= 2) {
+			return 0;
+		}
+		if (value <= 4) {
+			return 1;
+		}
+		if (value <= 6) {
+			return 2;
+		}
+		return 3;
+	}
+
+	public static void recomputeCheckValue(CompoundTag tag, String skill) {
+		CompoundTag values = tag.getCompound(CHECK_VALUES);
+		values.putInt(skill, computeCheckValue(tag, skill));
+		tag.put(CHECK_VALUES, values);
+	}
+
+	public static void recomputeAllCheckValues(CompoundTag tag) {
+		for (String skill : SkillTable.ABILITY_OF.keySet()) {
+			recomputeCheckValue(tag, skill);
+		}
 	}
 
 	public static int hp(CompoundTag tag) {
@@ -235,6 +324,10 @@ public final class CardData {
 
 	public static boolean requiredComplete(CompoundTag tag) {
 		return !tag.getString(INVESTIGATOR).trim().isEmpty();
+	}
+
+	public static boolean isBaseSkill(String skill) {
+		return BASE_SKILLS.contains(skill);
 	}
 
 	public static void keepProfile(CompoundTag source, CompoundTag target) {
@@ -256,7 +349,14 @@ public final class CardData {
 		}
 		for (List<String> list : SKILL_CATEGORIES.values()) {
 			for (String name : list) {
-				setSkill(tag, name, BASE_SKILLS.contains(name) ? 1 : 0);
+				if (isBaseSkill(name)) {
+					CompoundTag skills = tag.getCompound(SKILLS);
+					skills.putInt(name, 1);
+					tag.put(SKILLS, skills);
+					recomputeCheckValue(tag, name);
+				} else {
+					setSkill(tag, name, 0);
+				}
 			}
 		}
 	}

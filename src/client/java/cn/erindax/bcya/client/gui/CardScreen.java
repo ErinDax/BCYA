@@ -81,6 +81,7 @@ public class CardScreen extends Screen {
 	private final List<AbstractWidget> formWidgets = new ArrayList<>();
 	private final List<Integer> formBaseY = new ArrayList<>();
 	private final List<Boolean> formProfile = new ArrayList<>();
+	private final List<Boolean> formLocked = new ArrayList<>();
 	private final List<Line> lines = new ArrayList<>();
 	private final List<AbstractWidget> fixedWidgets = new ArrayList<>();
 
@@ -107,6 +108,7 @@ public class CardScreen extends Screen {
 		formWidgets.clear();
 		formBaseY.clear();
 		formProfile.clear();
+		formLocked.clear();
 		lines.clear();
 		fixedWidgets.clear();
 		draggingScroll = false;
@@ -236,7 +238,7 @@ public class CardScreen extends Screen {
 			stat(x, y, nameW, valueW, Component.literal(name), NAME,
 				() -> String.valueOf(CardData.ability(card, name)),
 				() -> decAbility(name), () -> incAbility(name),
-				name.equals(CardData.ABILITY_LUCK));
+				name.equals(CardData.ABILITY_LUCK), false);
 		}
 		cursor += 18 * ((CardData.ABILITY_NAMES.size() + 1) / 2) + 8;
 
@@ -248,10 +250,10 @@ public class CardScreen extends Screen {
 				String name = names.get(i);
 				int x = childX0 + (i % 2) * colW;
 				int y = cursor + (i / 2) * 18;
-				boolean base = CardData.BASE_SKILLS.contains(name);
+				boolean base = CardData.isBaseSkill(name);
 				stat(x, y, nameW, valueW, Component.literal(name), base ? BASE : NAME,
 					() -> String.valueOf(CardData.skill(card, name)),
-					() -> decSkill(name), () -> incSkill(name), false);
+					() -> decSkill(name), () -> incSkill(name), false, base);
 			}
 			cursor += 18 * ((names.size() + 1) / 2) + 6;
 		}
@@ -325,7 +327,7 @@ public class CardScreen extends Screen {
 	}
 
 	private void stat(int x, int y, int nameW, int valueW, Component name, int nameColor,
-			Supplier<String> value, Runnable dec, Runnable inc, boolean opOnly) {
+			Supplier<String> value, Runnable dec, Runnable inc, boolean opOnly, boolean locked) {
 		line(x, y + 4, nameColor, () -> name);
 		int minusX = x + nameW + 4;
 		int slotX = minusX + 16;
@@ -334,7 +336,10 @@ public class CardScreen extends Screen {
 		if (!readOnly) {
 			Button minus = smallButton(minusX, y, "-", dec);
 			Button plus = smallButton(plusX, y, "+", inc);
-			if (opOnly) {
+			if (locked) {
+				addLocked(minus, y);
+				addLocked(plus, y);
+			} else if (opOnly) {
 				addProfile(minus, y);
 				addProfile(plus, y);
 			} else {
@@ -372,18 +377,23 @@ public class CardScreen extends Screen {
 	}
 
 	private void addProfile(AbstractWidget widget, int baseY) {
-		addForm(widget, baseY, true);
+		addForm(widget, baseY, true, false);
+	}
+
+	private void addLocked(AbstractWidget widget, int baseY) {
+		addForm(widget, baseY, false, true);
 	}
 
 	private void addForm(AbstractWidget widget, int baseY) {
-		addForm(widget, baseY, false);
+		addForm(widget, baseY, false, false);
 	}
 
-	private void addForm(AbstractWidget widget, int baseY, boolean profile) {
+	private void addForm(AbstractWidget widget, int baseY, boolean profile, boolean locked) {
 		widget.setY(baseY + scroll);
 		formWidgets.add(widget);
 		formBaseY.add(baseY);
 		formProfile.add(profile);
+		formLocked.add(locked);
 		addWidget(widget);
 	}
 
@@ -396,11 +406,15 @@ public class CardScreen extends Screen {
 	}
 
 	private void incAbility(String name) {
-		if (name.equals(CardData.ABILITY_LUCK) && !operator) {
+		boolean fortune = name.equals(CardData.ABILITY_LUCK);
+		if (fortune && !operator) {
 			return;
 		}
 		int value = CardData.ability(card, name);
-		if (value >= CardData.ABILITY_MAX || CardData.abilitySpent(card) >= CardData.ABILITY_POINTS_TOTAL) {
+		if (value >= CardData.ABILITY_MAX) {
+			return;
+		}
+		if (!fortune && CardData.abilitySpent(card) >= CardData.ABILITY_POINTS_TOTAL) {
 			return;
 		}
 		CardData.setAbility(card, name, value + 1);
@@ -414,13 +428,24 @@ public class CardScreen extends Screen {
 	}
 
 	private void incSkill(String name) {
-		if (CardData.skillSpent(card) >= CardData.SKILL_POINTS_TOTAL) {
+		if (CardData.isBaseSkill(name)) {
 			return;
 		}
-		CardData.setSkill(card, name, CardData.skill(card, name) + 1);
+		int level = CardData.skill(card, name);
+		if (level >= CardData.SKILL_MAX) {
+			return;
+		}
+		int cost = CardData.nextSkillCost(level);
+		if (CardData.skillSpent(card) + cost > CardData.SKILL_POINTS_TOTAL) {
+			return;
+		}
+		CardData.setSkill(card, name, level + 1);
 	}
 
 	private void decSkill(String name) {
+		if (CardData.isBaseSkill(name)) {
+			return;
+		}
 		CardData.setSkill(card, name, CardData.skill(card, name) - 1);
 	}
 
@@ -473,7 +498,7 @@ public class CardScreen extends Screen {
 			widget.setY(formBaseY.get(i) + scroll);
 			boolean show = inFormView(widget);
 			widget.visible = show;
-			boolean allow = formProfile.get(i) ? operator : !readOnly;
+			boolean allow = formLocked.get(i) ? false : formProfile.get(i) ? operator : !readOnly;
 			widget.active = show && allow;
 			if (widget instanceof EditBox box) {
 				box.setEditable(allow);
@@ -642,8 +667,8 @@ public class CardScreen extends Screen {
 
 		int metaX = skinX;
 		int metaY = skinY + skinH + 6;
-		drawBar(graphics, metaX, metaY, skinW, CardData.hp(card), 15, HP, Component.translatable(P + "hp"));
-		drawBar(graphics, metaX, metaY + 14, skinW, CardData.mp(card), 10, MP, Component.translatable(P + "mp"));
+		drawBar(graphics, metaX, metaY, skinW, CardData.hp(card), 10 + CardData.ABILITY_MAX, HP, Component.translatable(P + "hp"));
+		drawBar(graphics, metaX, metaY + 14, skinW, CardData.mp(card), CardData.ABILITY_MAX * 2, MP, Component.translatable(P + "mp"));
 		drawBar(graphics, metaX, metaY + 28, skinW, CardData.abilitySpent(card), CardData.ABILITY_POINTS_TOTAL,
 			ABILITY, Component.translatable(P + "ap"));
 		drawBar(graphics, metaX, metaY + 42, skinW, CardData.skillSpent(card), CardData.SKILL_POINTS_TOTAL,

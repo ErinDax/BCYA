@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "bcya",
+  "version": "${version}",
+  "name": "BCYA",
+  "description": "动物面具：佩戴后替换皮肤、隐藏名牌，兼容 Simple Voice Chat 变声；魔术手杖可随机互换所有玩家的面具。",
+  "authors": [
+    "202037994@qq.com"
+  ],
+  "license": "GPL-2.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "cn.erindax.bcya.BcyaMod"
+    ],
+    "client": [
+      "cn.erindax.bcya.client.BcyaModClient"
+    ],
+    "voicechat": [
+      "cn.erindax.bcya.compat.voicechat.BcyaVoicechatPlugin"
+    ]
+  },
+  "mixins": [
+    "bcya.mixins.json",
+    {
+      "config": "bcya.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "voicechat": "*"
+  }
+}

@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import java.util.UUID;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -44,7 +45,7 @@ public final class CardHandler {
 		if (!stack.is(ModItems.ID_CARD)) {
 			return;
 		}
-		CompoundTag card = CardData.read(stack);
+		CompoundTag card = bindOwner(player, stack, CardData.read(stack));
 		CompoundTag ownerInfo = buildOwnerInfo(player, card);
 		boolean hasOwner = ownerInfo.getBoolean("has_owner");
 		boolean readOnly = hasOwner && !ownerInfo.getString("uuid").equals(player.getUUID().toString());
@@ -90,11 +91,31 @@ public final class CardHandler {
 			normalized.putString(CardData.OWNER_SKIN_SIG, existing.getString(CardData.OWNER_SKIN_SIG));
 		}
 
-		CardData.write(stack, normalized);
+		commitCard(player, stack, normalized);
+		sendResult(player, true, MSG_SAVED);
+	}
+
+	private static CompoundTag bindOwner(ServerPlayer player, ItemStack stack, CompoundTag card) {
+		CompoundTag bound = CardData.normalize(card);
+		if (!bound.getString(CardData.OWNER_UUID).isEmpty()) {
+			return bound;
+		}
+		if (bound.getString(CardData.CARD_ID).isEmpty()) {
+			bound.putString(CardData.CARD_ID, UUID.randomUUID().toString());
+		}
+		bound.putString(CardData.OWNER_UUID, player.getUUID().toString());
+		bound.putString(CardData.OWNER_NAME, playerName(player));
+		captureSkin(player, bound);
+		commitCard(player, stack, bound);
+		player.displayClientMessage(Component.translatable(MSG_SAVED), false);
+		return bound;
+	}
+
+	private static void commitCard(ServerPlayer player, ItemStack stack, CompoundTag card) {
+		CardData.write(stack, card);
 		player.inventoryMenu.broadcastChanges();
 		player.containerMenu.broadcastChanges();
-		CardArchive.get(player.server).put(normalized);
-		sendResult(player, true, MSG_SAVED);
+		CardArchive.get(player.server).put(card);
 	}
 
 	private static void sendResult(ServerPlayer player, boolean success, String messageKey) {

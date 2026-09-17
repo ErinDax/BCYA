@@ -36,14 +36,16 @@ public class IdCardItem extends Item {
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		CompoundTag tag = CardData.read(stack);
 		String investigator = tag.getString(CardData.INVESTIGATOR).trim();
-		if (investigator.isEmpty()) {
+		String owner = tag.getString(CardData.OWNER_NAME);
+		if (owner.isEmpty()) {
+			owner = "-";
+		}
+		boolean bound = !tag.getString(CardData.OWNER_UUID).isEmpty();
+		if (!bound && investigator.isEmpty()) {
 			tooltip.add(Component.translatable("item.bcya.id_card.blank").withStyle(ChatFormatting.DARK_GRAY));
 		} else {
-			String player = tag.getString(CardData.OWNER_NAME);
-			if (player.isEmpty()) {
-				player = "-";
-			}
-			tooltip.add(Component.translatable("item.bcya.id_card.named", investigator, player)
+			tooltip.add(Component.translatable("item.bcya.id_card.named",
+					investigator.isEmpty() ? Component.translatable("item.bcya.id_card.none") : investigator, owner)
 				.withStyle(ChatFormatting.GRAY));
 			if (tag.getBoolean(CardData.AWAKENED) && !tag.getString(CardData.ABILITY_NAME).isBlank()) {
 				tooltip.add(Component.translatable("item.bcya.id_card.awakened", tag.getString(CardData.ABILITY_NAME))

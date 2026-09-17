@@ -42,6 +42,7 @@
   "item.bcya.id_card.awakened": "Awakened ability: %s",
   "item.bcya.id_card.blank": "A blank investigator ID card",
   "item.bcya.id_card.named": "Investigator: %s / Player: %s",
+  "item.bcya.id_card.none": "None",
   "item.bcya.id_card.need_investigator": "Please fill in the investigator name",
   "item.bcya.id_card.no_card": "You are not holding an investigator ID card",
   "item.bcya.id_card.readonly": "You may not edit another player's archive",

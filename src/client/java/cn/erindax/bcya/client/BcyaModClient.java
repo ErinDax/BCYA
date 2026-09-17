@@ -132,12 +132,10 @@ public class BcyaModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(SaveCardResultPayload.TYPE, (payload, context) -> {
 			Minecraft client = context.client();
 			if (client.player != null) {
-				client.player.displayClientMessage(Component.translatable(payload.messageKey()), false);
+				client.player.displayClientMessage(Component.translatable(payload.messageKey()), true);
 			}
 			if (payload.success()) {
 				client.setScreen(null);
-			} else if (client.screen instanceof CardScreen cardScreen) {
-				cardScreen.onSaveFailed();
 			}
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {

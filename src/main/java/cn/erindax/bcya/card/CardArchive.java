@@ -9,6 +9,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 
 public class CardArchive extends SavedData {
@@ -17,9 +18,13 @@ public class CardArchive extends SavedData {
 	private static final String TAG_CARDS = "Cards";
 
 	private static final SavedData.Factory<CardArchive> FACTORY =
-		new SavedData.Factory<>(CardArchive::new, CardArchive::load, null);
+		new SavedData.Factory<>(CardArchive::new, CardArchive::load, DataFixTypes.LEVEL);
 
 	private final Map<String, CompoundTag> cards = new LinkedHashMap<>();
+
+	public static void prepare() {
+		FACTORY.getClass();
+	}
 
 	public static CardArchive get(MinecraftServer server) {
 		return server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);

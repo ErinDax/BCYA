@@ -1,6 +1,7 @@
 package cn.erindax.bcya.card;
 
 import cn.erindax.bcya.card.net.CardOpenPayload;
+import cn.erindax.bcya.card.net.LockCardPayload;
 import cn.erindax.bcya.card.net.SaveCardPayload;
 import cn.erindax.bcya.card.net.SaveCardResultPayload;
 import cn.erindax.bcya.item.ModItems;
@@ -20,10 +21,14 @@ import net.minecraft.world.item.ItemStack;
 
 public final class CardHandler {
 
-	public static final String MSG_SAVED = "item.bcya.id_card.saved";
+	public static final String MSG_CREATED = "item.bcya.id_card.saved";
+	public static final String MSG_SAVED = "item.bcya.id_card.updated";
 	public static final String MSG_NO_CARD = "item.bcya.id_card.no_card";
 	public static final String MSG_READONLY = "item.bcya.id_card.readonly";
-	public static final String MSG_NEED_INVESTIGATOR = "item.bcya.id_card.need_investigator";
+	public static final String MSG_CARD_LOCKED = "item.bcya.id_card.locked";
+	public static final String MSG_LOCK_ON = "item.bcya.id_card.lock_on";
+	public static final String MSG_LOCK_OFF = "item.bcya.id_card.lock_off";
+	public static final String MSG_NO_PERMISSION = "item.bcya.id_card.no_permission";
 
 	private CardHandler() {
 	}
@@ -32,9 +37,13 @@ public final class CardHandler {
 		PayloadTypeRegistry.playS2C().register(CardOpenPayload.TYPE, CardOpenPayload.STREAM_CODEC);
 		PayloadTypeRegistry.playS2C().register(SaveCardResultPayload.TYPE, SaveCardResultPayload.STREAM_CODEC);
 		PayloadTypeRegistry.playC2S().register(SaveCardPayload.TYPE, SaveCardPayload.STREAM_CODEC);
+		PayloadTypeRegistry.playC2S().register(LockCardPayload.TYPE, LockCardPayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SaveCardPayload.TYPE,
 			(payload, context) -> onSave(context.player(), payload));
+		ServerPlayNetworking.registerGlobalReceiver(LockCardPayload.TYPE,
+			(payload, context) -> onToggleLock(context.player(), payload));
+		CardArchive.prepare();
 	}
 
 	public static void open(ServerPlayer player, InteractionHand hand) {
@@ -50,7 +59,8 @@ public final class CardHandler {
 		boolean operator = player.hasPermissions(2);
 		boolean hasOwner = ownerInfo.getBoolean("has_owner");
 		boolean ownCard = ownerInfo.getString("uuid").equals(player.getUUID().toString());
-		boolean readOnly = !operator && hasOwner && !ownCard;
+		boolean locked = CardData.isLocked(card);
+		boolean readOnly = !operator && (locked || (hasOwner && !ownCard));
 		ownerInfo.putBoolean("operator", operator);
 		ServerPlayNetworking.send(player, new CardOpenPayload(card, ownerInfo, readOnly,
 			hand == InteractionHand.MAIN_HAND));
@@ -73,18 +83,19 @@ public final class CardHandler {
 			sendResult(player, false, MSG_READONLY);
 			return;
 		}
+		if (CardData.isLocked(existing) && !operator) {
+			sendResult(player, false, MSG_CARD_LOCKED);
+			return;
+		}
 
 		CompoundTag incoming = payload.card().copy();
 		if (!operator) {
 			CardData.keepProfile(existing, incoming);
 		}
 		incoming.putString(CardData.INVESTIGATOR, incoming.getString(CardData.INVESTIGATOR).trim());
-		if (incoming.getString(CardData.INVESTIGATOR).isEmpty()) {
-			sendResult(player, false, MSG_NEED_INVESTIGATOR);
-			return;
-		}
 
 		CompoundTag normalized = CardData.normalize(incoming);
+		CardData.setLocked(normalized, CardData.isLocked(existing));
 		if (existingOwner.isEmpty()) {
 			normalized.putString(CardData.CARD_ID, UUID.randomUUID().toString());
 			normalized.putString(CardData.OWNER_UUID, player.getUUID().toString());
@@ -102,6 +113,26 @@ public final class CardHandler {
 		sendResult(player, true, MSG_SAVED);
 	}
 
+	private static void onToggleLock(ServerPlayer player, LockCardPayload payload) {
+		if (!player.hasPermissions(2)) {
+			player.displayClientMessage(Component.translatable(MSG_NO_PERMISSION), true);
+			return;
+		}
+		if (player.isSpectator()) {
+			return;
+		}
+		InteractionHand hand = payload.mainHand() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+		ItemStack stack = player.getItemInHand(hand);
+		if (!stack.is(ModItems.ID_CARD)) {
+			player.displayClientMessage(Component.translatable(MSG_NO_CARD), true);
+			return;
+		}
+		CompoundTag card = CardData.read(stack);
+		CardData.setLocked(card, payload.locked());
+		commitCard(player, stack, card);
+		player.displayClientMessage(Component.translatable(payload.locked() ? MSG_LOCK_ON : MSG_LOCK_OFF), true);
+	}
+
 	private static CompoundTag bindOwner(ServerPlayer player, ItemStack stack, CompoundTag card) {
 		CompoundTag bound = CardData.normalize(card);
 		if (!bound.getString(CardData.OWNER_UUID).isEmpty()) {
@@ -114,7 +145,7 @@ public final class CardHandler {
 		bound.putString(CardData.OWNER_NAME, playerName(player));
 		captureSkin(player, bound);
 		commitCard(player, stack, bound);
-		player.displayClientMessage(Component.translatable(MSG_SAVED), false);
+		player.displayClientMessage(Component.translatable(MSG_CREATED), true);
 		return bound;
 	}
 

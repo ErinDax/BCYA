@@ -1,6 +1,7 @@
 package cn.erindax.bcya.client.gui;
 
 import cn.erindax.bcya.card.CardData;
+import cn.erindax.bcya.card.net.LockCardPayload;
 import cn.erindax.bcya.card.net.SaveCardPayload;
 import cn.erindax.bcya.client.render.CardSkinRenderer;
 
@@ -87,7 +88,6 @@ public class CardScreen extends Screen {
 
 	private EditBox investigatorBox;
 	private Button awakenButton;
-	private Button doneButton;
 
 	public CardScreen(CompoundTag card, boolean readOnly, boolean mainHand, boolean operator,
 			UUID ownerId, String ownerName, String skinValue, String skinSig) {
@@ -145,10 +145,7 @@ public class CardScreen extends Screen {
 		investigatorBox.setMaxLength(48);
 		investigatorBox.setValue(card.getString(CardData.INVESTIGATOR));
 		investigatorBox.setEditable(!readOnly);
-		investigatorBox.setResponder(value -> {
-			card.putString(CardData.INVESTIGATOR, value);
-			updateDoneState();
-		});
+		investigatorBox.setResponder(value -> card.putString(CardData.INVESTIGATOR, value));
 		addForm(investigatorBox, cursor);
 		cursor += 22;
 
@@ -187,6 +184,8 @@ public class CardScreen extends Screen {
 		btnW = Math.max(btnW, font.width(Component.translatable(P + "awakened_yes")));
 		btnW = Math.max(btnW, font.width(doneLabel));
 		btnW = Math.max(btnW, font.width(resetLabel));
+		btnW = Math.max(btnW, font.width(Component.translatable(P + "lock")));
+		btnW = Math.max(btnW, font.width(Component.translatable(P + "unlock")));
 		btnW = Math.max(btnW, font.width(closeLabel)) + 20;
 		awakenButton = evenButton(fieldX, cursor, btnW, btnH, awakenLabel(), button -> {
 			card.putBoolean(CardData.AWAKENED, !card.getBoolean(CardData.AWAKENED));
@@ -262,7 +261,8 @@ public class CardScreen extends Screen {
 		int footerY = panelY + panelH - 26;
 		int closeX = formX1 - btnW;
 		int resetX = closeX - btnGap - btnW;
-		int doneX = resetX - btnGap - btnW;
+		int lockX = resetX - btnGap - btnW;
+		int doneX = lockX - btnGap - btnW;
 		Button close = evenButton(closeX, footerY, btnW, btnH, closeLabel, button -> onClose());
 		fixedWidgets.add(close);
 		addWidget(close);
@@ -270,12 +270,19 @@ public class CardScreen extends Screen {
 			Button reset = evenButton(resetX, footerY, btnW, btnH, resetLabel, button -> onReset());
 			fixedWidgets.add(reset);
 			addWidget(reset);
+			Button lock = evenButton(lockX, footerY, btnW, btnH, lockLabel(), button -> {
+				boolean next = !CardData.isLocked(card);
+				CardData.setLocked(card, next);
+				button.setMessage(lockLabel());
+				ClientPlayNetworking.send(new LockCardPayload(next, mainHand));
+			});
+			fixedWidgets.add(lock);
+			addWidget(lock);
 		}
 		if (!readOnly) {
-			doneButton = evenButton(operator ? doneX : resetX, footerY, btnW, btnH, doneLabel, button -> onDone());
-			fixedWidgets.add(doneButton);
-			addWidget(doneButton);
-			updateDoneState();
+			Button done = evenButton(operator ? doneX : resetX, footerY, btnW, btnH, doneLabel, button -> onDone());
+			fixedWidgets.add(done);
+			addWidget(done);
 		}
 
 		clampScroll();
@@ -368,6 +375,10 @@ public class CardScreen extends Screen {
 		return Component.translatable(P + (card.getBoolean(CardData.AWAKENED) ? "awakened_yes" : "awakened_no"));
 	}
 
+	private Component lockLabel() {
+		return Component.translatable(P + (CardData.isLocked(card) ? "unlock" : "lock"));
+	}
+
 	private void line(int x, int baseY, int color, Supplier<Component> text) {
 		lines.add(new Line(x, baseY, color, text, 0));
 	}
@@ -395,14 +406,6 @@ public class CardScreen extends Screen {
 		formProfile.add(profile);
 		formLocked.add(locked);
 		addWidget(widget);
-	}
-
-	private void updateDoneState() {
-		if (doneButton != null) {
-			doneButton.active = CardData.requiredComplete(card);
-			doneButton.setWidth(doneButton.getWidth());
-			doneButton.setHeight(doneButton.getHeight());
-		}
 	}
 
 	private void incAbility(String name) {
@@ -462,19 +465,7 @@ public class CardScreen extends Screen {
 			return;
 		}
 		card.putString(CardData.INVESTIGATOR, investigatorBox.getValue().trim());
-		if (!CardData.requiredComplete(card)) {
-			return;
-		}
 		ClientPlayNetworking.send(new SaveCardPayload(card, mainHand));
-		if (doneButton != null) {
-			doneButton.active = false;
-		}
-	}
-
-	public void onSaveFailed() {
-		if (doneButton != null) {
-			doneButton.active = CardData.requiredComplete(card);
-		}
 	}
 
 	private boolean inFormView(AbstractWidget widget) {
@@ -674,8 +665,10 @@ public class CardScreen extends Screen {
 		drawBar(graphics, metaX, metaY + 42, skinW, CardData.skillSpent(card), CardData.SKILL_POINTS_TOTAL,
 			SKILL, Component.translatable(P + "sp"));
 		if (readOnly) {
+			boolean ownLocked = CardData.isLocked(card) && minecraft != null && minecraft.player != null
+				&& minecraft.player.getUUID().equals(ownerId);
 			Component mark = Component.literal("🔒 ").append(
-				Component.translatable(P + "readonly_mark").withStyle(ChatFormatting.BOLD));
+				Component.translatable(P + (ownLocked ? "locked_mark" : "readonly_mark")).withStyle(ChatFormatting.BOLD));
 			graphics.drawString(font, mark, metaX + Math.max(0, (skinW - font.width(mark)) / 2),
 				metaY + 70, TEXT, false);
 		}

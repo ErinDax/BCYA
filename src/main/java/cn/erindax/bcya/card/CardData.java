@@ -27,6 +27,7 @@ public final class CardData {
 	public static final String AWAKENED = "awakened";
 	public static final String ABILITY_NAME = "ability_name";
 	public static final String CHECK_VALUES = "check_values";
+	public static final String LOCKED = "locked";
 
 	public static final int ABILITY_DEFAULT = 0;
 	public static final int ABILITY_MAX = 6;
@@ -124,6 +125,7 @@ public final class CardData {
 		if (!out.contains(OWNER_SKIN_SIG)) {
 			out.putString(OWNER_SKIN_SIG, "");
 		}
+		out.putBoolean(LOCKED, out.getBoolean(LOCKED));
 		return out;
 	}
 
@@ -322,12 +324,16 @@ public final class CardData {
 		return Mth.clamp(value, 0, EMOTION_MAX);
 	}
 
-	public static boolean requiredComplete(CompoundTag tag) {
-		return !tag.getString(INVESTIGATOR).trim().isEmpty();
-	}
-
 	public static boolean isBaseSkill(String skill) {
 		return BASE_SKILLS.contains(skill);
+	}
+
+	public static boolean isLocked(CompoundTag tag) {
+		return tag.getBoolean(LOCKED);
+	}
+
+	public static void setLocked(CompoundTag tag, boolean locked) {
+		tag.putBoolean(LOCKED, locked);
 	}
 
 	public static void keepProfile(CompoundTag source, CompoundTag target) {

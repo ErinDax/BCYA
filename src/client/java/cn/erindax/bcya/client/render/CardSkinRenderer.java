@@ -14,6 +14,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.world.entity.player.PlayerModelPart;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -93,11 +94,17 @@ public final class CardSkinRenderer {
 
 		CardPlayer(ClientLevel level, GameProfile profile) {
 			super(level, profile);
+			this.getEntityData().set(DATA_PLAYER_MODE_CUSTOMISATION, (byte) 0x7E);
 		}
 
 		@Override
 		public PlayerSkin getSkin() {
 			return skin;
+		}
+
+		@Override
+		public boolean isModelPartShown(PlayerModelPart part) {
+			return part != PlayerModelPart.CAPE && super.isModelPartShown(part);
 		}
 	}
 }

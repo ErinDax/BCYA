@@ -4,6 +4,8 @@
   "commands.bcya.masker_hbl.on": "已将 %s 加入互换黑名单",
   "commands.bcya.masker_vbl.off": "已重新开启 %s 的语音变声",
   "commands.bcya.masker_vbl.on": "已关闭 %s 的语音变声",
+  "commands.bcya.investigator.emotion.done": "已将 %s 的情绪值设为 %s",
+  "commands.bcya.investigator.emotion.no_card": "玩家 %s 没有档案卡",
   "commands.bcya.investigator.export.done": "已导出 %s 份档案到 %s",
   "commands.bcya.investigator.export.failed": "导出失败：%s",
   "commands.bcya.investigator.list.empty": "暂无已建立的档案",

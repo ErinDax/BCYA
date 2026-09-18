@@ -1,5 +1,7 @@
 package cn.erindax.bcya.card;
 
+import cn.erindax.bcya.item.ModItems;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.Set;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
@@ -322,6 +325,21 @@ public final class CardData {
 	public static int emotion(CompoundTag tag) {
 		int value = tag.contains(EMOTION) ? tag.getInt(EMOTION) : EMOTION_DEFAULT;
 		return Mth.clamp(value, 0, EMOTION_MAX);
+	}
+
+	public static void setEmotion(CompoundTag tag, int value) {
+		tag.putInt(EMOTION, Mth.clamp(value, 0, EMOTION_MAX));
+	}
+
+	public static ItemStack findCard(Player player) {
+		String uuid = player.getUUID().toString();
+		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+			ItemStack stack = player.getInventory().getItem(i);
+			if (stack.is(ModItems.ID_CARD) && uuid.equals(read(stack).getString(OWNER_UUID))) {
+				return stack;
+			}
+		}
+		return ItemStack.EMPTY;
 	}
 
 	public static boolean isBaseSkill(String skill) {

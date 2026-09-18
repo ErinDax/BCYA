@@ -2,13 +2,16 @@ package cn.erindax.bcya.command;
 
 import cn.erindax.bcya.card.CardArchive;
 import cn.erindax.bcya.card.CardData;
+import cn.erindax.bcya.card.CardHandler;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -25,8 +28,11 @@ import java.util.Map;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 public final class InvestigatorCommands {
 
@@ -38,7 +44,28 @@ public final class InvestigatorCommands {
 	public static LiteralArgumentBuilder<CommandSourceStack> build() {
 		return Commands.literal("investigator")
 			.then(Commands.literal("list").executes(InvestigatorCommands::list))
-			.then(Commands.literal("export").executes(InvestigatorCommands::export));
+			.then(Commands.literal("export").executes(InvestigatorCommands::export))
+			.then(Commands.literal("emotion")
+				.then(Commands.argument("player", EntityArgument.player())
+					.then(Commands.argument("value", IntegerArgumentType.integer(0, CardData.EMOTION_MAX))
+						.executes(InvestigatorCommands::setEmotion))));
+	}
+
+	private static int setEmotion(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		ServerPlayer target = EntityArgument.getPlayer(context, "player");
+		int value = IntegerArgumentType.getInteger(context, "value");
+		ItemStack stack = CardData.findCard(target);
+		if (stack.isEmpty()) {
+			source.sendFailure(Component.translatable("commands.bcya.investigator.emotion.no_card", target.getName()));
+			return 0;
+		}
+		CompoundTag card = CardData.read(stack);
+		CardData.setEmotion(card, value);
+		CardHandler.commitCard(target, stack, card);
+		source.sendSuccess(() -> Component.translatable(
+			"commands.bcya.investigator.emotion.done", target.getName(), CardData.emotion(card)), true);
+		return CardData.emotion(card);
 	}
 
 	private static int list(CommandContext<CommandSourceStack> context) {

@@ -149,7 +149,7 @@ public final class CardHandler {
 		return bound;
 	}
 
-	private static void commitCard(ServerPlayer player, ItemStack stack, CompoundTag card) {
+	public static void commitCard(ServerPlayer player, ItemStack stack, CompoundTag card) {
 		CardData.write(stack, card);
 		player.inventoryMenu.broadcastChanges();
 		player.containerMenu.broadcastChanges();

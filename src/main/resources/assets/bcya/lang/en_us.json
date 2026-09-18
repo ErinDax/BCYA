@@ -4,6 +4,8 @@
   "commands.bcya.masker_hbl.on": "%s added to the swap blacklist",
   "commands.bcya.masker_vbl.off": "Voice changing for %s has been re-enabled",
   "commands.bcya.masker_vbl.on": "Voice changing for %s has been disabled",
+  "commands.bcya.investigator.emotion.done": "Set %s's emotion to %s",
+  "commands.bcya.investigator.emotion.no_card": "Player %s has no ID card",
   "commands.bcya.investigator.export.done": "Exported %s archive(s) to %s",
   "commands.bcya.investigator.export.failed": "Export failed: %s",
   "commands.bcya.investigator.list.empty": "No archives have been created yet",

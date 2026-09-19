@@ -41,6 +41,13 @@ public final class CardData {
 	public static final int EMOTION_MAX = 100;
 	public static final int CHECK_MIN = 1;
 	public static final int CHECK_MAX = 7;
+	public static final int DICE_FACES = 6;
+	public static final int DICE_SUCCESS_MIN = 4;
+	public static final int UNTRAINED_SUCCESS = 6;
+	public static final int EMOTION_HIGH = 70;
+	public static final int EMOTION_LOW_MIN = 15;
+	public static final int EMOTION_LOW_MAX = 39;
+	public static final int EMOTION_BLOCK_MAX = 14;
 
 	public static final String ABILITY_LUCK = "运势";
 

@@ -42,14 +42,36 @@ public final class BcyaCommands {
 	}
 
 	public static void register() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-			dispatcher.register(Commands.literal(ROOT)
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			dispatcher.register(root(ROOT));
+			dispatcher.register(root("bcya"));
+		});
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> root(String name) {
+		return Commands.literal(name)
+			.then(maskRuleToggle(MASKER_VBL, MaskRulesState.Rule.VOICE_DISABLED, "commands.bcya.masker_vbl")
+				.requires(source -> source.hasPermission(2)))
+			.then(maskRuleToggle(MASKER_HBL, MaskRulesState.Rule.SWAP_BLACKLIST, "commands.bcya.masker_hbl")
+				.requires(source -> source.hasPermission(2)))
+			.then(PatrolCommands.build().requires(source -> source.hasPermission(2)))
+			.then(InvestigatorCommands.build().requires(source -> source.hasPermission(2)))
+			.then(Commands.literal(RELOAD)
 				.requires(source -> source.hasPermission(2))
-				.then(maskRuleToggle(MASKER_VBL, MaskRulesState.Rule.VOICE_DISABLED, "commands.bcya.masker_vbl"))
-				.then(maskRuleToggle(MASKER_HBL, MaskRulesState.Rule.SWAP_BLACKLIST, "commands.bcya.masker_hbl"))
-				.then(PatrolCommands.build())
-				.then(InvestigatorCommands.build())
-				.then(Commands.literal(RELOAD).executes(ctx -> reload(ctx.getSource())))));
+				.executes(ctx -> reload(ctx.getSource())))
+			.then(btrpg())
+			.then(CheckCommands.check())
+			.then(CheckCommands.kp())
+			.then(CheckCommands.roll())
+			.then(CheckCommands.log());
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> btrpg() {
+		return InvestigatorCommands.attachArchive(Commands.literal("btrpg"))
+			.then(CheckCommands.check())
+			.then(CheckCommands.kp())
+			.then(CheckCommands.roll())
+			.then(CheckCommands.log());
 	}
 
 	private static int reload(CommandSourceStack source) {

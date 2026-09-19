@@ -2,7 +2,10 @@ package cn.erindax.bcya;
 
 import cn.erindax.bcya.block.ModBlocks;
 import cn.erindax.bcya.card.CardHandler;
+import cn.erindax.bcya.check.CheckHandler;
 import cn.erindax.bcya.command.BcyaCommands;
+import cn.erindax.bcya.command.DifficultyArgumentType;
+import cn.erindax.bcya.command.SkillArgumentType;
 import cn.erindax.bcya.entity.ModEntities;
 import cn.erindax.bcya.entity.PatrolRecorder;
 import cn.erindax.bcya.entity.PatrollerEntity;
@@ -37,6 +40,8 @@ public class BcyaMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		SkillArgumentType.register();
+		DifficultyArgumentType.register();
 		ModComponents.init();
 		ModAttachments.init();
 		ModBlocks.init();
@@ -53,6 +58,7 @@ public class BcyaMod implements ModInitializer {
 		LockHandler.init();
 		MusicHandler.init();
 		CardHandler.init();
+		CheckHandler.init();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			sender.sendPacket(MaskRulesState.get(server).toVoicePayload());

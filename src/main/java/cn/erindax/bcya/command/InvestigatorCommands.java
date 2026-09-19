@@ -42,10 +42,20 @@ public final class InvestigatorCommands {
 	}
 
 	public static LiteralArgumentBuilder<CommandSourceStack> build() {
-		return Commands.literal("investigator")
-			.then(Commands.literal("list").executes(InvestigatorCommands::list))
-			.then(Commands.literal("export").executes(InvestigatorCommands::export))
+		return attachArchive(Commands.literal("investigator"));
+	}
+
+	public static LiteralArgumentBuilder<CommandSourceStack> attachArchive(
+			LiteralArgumentBuilder<CommandSourceStack> root) {
+		return root
+			.then(Commands.literal("list")
+				.requires(source -> source.hasPermission(2))
+				.executes(InvestigatorCommands::list))
+			.then(Commands.literal("export")
+				.requires(source -> source.hasPermission(2))
+				.executes(InvestigatorCommands::export))
 			.then(Commands.literal("emotion")
+				.requires(source -> source.hasPermission(2))
 				.then(Commands.argument("player", EntityArgument.player())
 					.then(Commands.argument("value", IntegerArgumentType.integer(0, CardData.EMOTION_MAX))
 						.executes(InvestigatorCommands::setEmotion))));

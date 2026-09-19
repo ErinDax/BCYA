@@ -3,7 +3,13 @@ package cn.erindax.bcya.client;
 import cn.erindax.bcya.block.ModBlocks;
 import cn.erindax.bcya.card.net.CardOpenPayload;
 import cn.erindax.bcya.card.net.SaveCardResultPayload;
+import cn.erindax.bcya.check.net.CheckPromptPayload;
+import cn.erindax.bcya.check.net.CheckResultPayload;
+import cn.erindax.bcya.check.net.KpCheckPayload;
+import cn.erindax.bcya.client.check.DicePreset;
 import cn.erindax.bcya.client.gui.CardScreen;
+import cn.erindax.bcya.client.gui.CheckScreen;
+import cn.erindax.bcya.client.gui.DicePresetScreen;
 import cn.erindax.bcya.client.gui.KeySkinScreen;
 import cn.erindax.bcya.client.gui.LockOwnerScreen;
 import cn.erindax.bcya.client.gui.LockPasswordScreen;
@@ -56,16 +62,24 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
 import java.util.UUID;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class BcyaModClient implements ClientModInitializer {
 	@Override
@@ -129,6 +143,15 @@ public class BcyaModClient implements ClientModInitializer {
 				owner.getBoolean("operator"), ownerId, owner.getString("name"),
 				owner.getString("skin"), owner.getString("skin_sig")));
 		});
+		ClientPlayNetworking.registerGlobalReceiver(CheckPromptPayload.TYPE, (payload, context) ->
+			context.client().setScreen(new CheckScreen(payload.data(), true)));
+		ClientPlayNetworking.registerGlobalReceiver(CheckResultPayload.TYPE, (payload, context) -> {
+			if (context.client().screen instanceof CheckScreen screen && screen.matches(payload.data())) {
+				screen.onResult(payload.data());
+			} else {
+				context.client().setScreen(new CheckScreen(payload.data(), false));
+			}
+		});
 		ClientPlayNetworking.registerGlobalReceiver(SaveCardResultPayload.TYPE, (payload, context) -> {
 			Minecraft client = context.client();
 			if (client.player != null) {
@@ -157,5 +180,24 @@ public class BcyaModClient implements ClientModInitializer {
 		LockRenderer.init();
 		MusicBlockRenderer.init();
 		MusicUploader.init();
+		UseItemCallback.EVENT.register((player, world, hand) -> {
+			ItemStack stack = player.getItemInHand(hand);
+			if (!world.isClientSide() || hand != InteractionHand.MAIN_HAND || !stack.is(Items.NETHER_STAR)
+				|| !player.hasPermissions(2)) {
+				return InteractionResultHolder.pass(stack);
+			}
+			Minecraft.getInstance().setScreen(new DicePresetScreen());
+			return InteractionResultHolder.success(stack);
+		});
+		UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+			if (!world.isClientSide() || hand != InteractionHand.MAIN_HAND || !player.hasPermissions(2)
+				|| !player.getItemInHand(hand).is(Items.NETHER_STAR)
+				|| !(entity instanceof AbstractClientPlayer) || entity == player) {
+				return InteractionResult.PASS;
+			}
+			ClientPlayNetworking.send(new KpCheckPayload(
+				entity.getUUID().toString(), DicePreset.skill(), DicePreset.difficulty()));
+			return InteractionResult.SUCCESS;
+		});
 	}
 }

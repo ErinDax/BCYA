@@ -277,7 +277,7 @@ public final class LockHandler {
 
 	public static void openKeySkinPicker(ServerPlayer player, InteractionHand hand) {
 		ItemStack held = player.getItemInHand(hand);
-		if (!(held.getItem() instanceof KeyItem)) {
+		if (!player.hasPermissions(2) || !(held.getItem() instanceof KeyItem)) {
 			return;
 		}
 		ServerPlayNetworking.send(player, new KeySkinListPayload(hand == InteractionHand.MAIN_HAND,
@@ -287,7 +287,7 @@ public final class LockHandler {
 	private static void onKeySkinSelect(ServerPlayer player, KeySkinSelectPayload payload) {
 		InteractionHand hand = payload.mainHand() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
 		ItemStack held = player.getItemInHand(hand);
-		if (!(held.getItem() instanceof KeyItem)) {
+		if (!player.hasPermissions(2) || !(held.getItem() instanceof KeyItem)) {
 			return;
 		}
 		String skin = payload.skin();

@@ -22,6 +22,9 @@ public class KeyItem extends Item {
 
 	@Override
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+		if (!player.hasPermissions(2)) {
+			return InteractionResultHolder.pass(player.getItemInHand(hand));
+		}
 		if (player instanceof ServerPlayer serverPlayer) {
 			LockHandler.openKeySkinPicker(serverPlayer, hand);
 		}

@@ -15,7 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
@@ -43,7 +45,8 @@ public final class LockRenderer {
 	}
 
 	private static void render(WorldRenderContext context) {
-		if (ClientLocks.all().isEmpty()) {
+		LocalPlayer player = Minecraft.getInstance().player;
+		if (player == null || !player.isCreative() || ClientLocks.all().isEmpty()) {
 			return;
 		}
 		ClientLevel level = context.world();

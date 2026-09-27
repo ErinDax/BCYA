@@ -6,6 +6,7 @@ import cn.erindax.bcya.check.CheckHandler;
 import cn.erindax.bcya.command.BcyaCommands;
 import cn.erindax.bcya.command.DifficultyArgumentType;
 import cn.erindax.bcya.command.SkillArgumentType;
+import cn.erindax.bcya.dance.DanceManager;
 import cn.erindax.bcya.entity.ModEntities;
 import cn.erindax.bcya.entity.PatrolRecorder;
 import cn.erindax.bcya.entity.PatrollerEntity;
@@ -59,6 +60,7 @@ public class BcyaMod implements ModInitializer {
 		MusicHandler.init();
 		CardHandler.init();
 		CheckHandler.init();
+		DanceManager.init();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			sender.sendPacket(MaskRulesState.get(server).toVoicePayload());

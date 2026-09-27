@@ -68,6 +68,10 @@ public final class ModItems {
 			.stacksTo(1)
 			.rarity(Rarity.RARE)));
 
+	public static final Item DANCE_BLOCK = register("dance_block",
+		new BlockItem(ModBlocks.DANCE_BLOCK, new Item.Properties()
+			.rarity(Rarity.RARE)));
+
 	public static final Item ID_CARD = register("id_card",
 		new IdCardItem(new Item.Properties()
 			.stacksTo(1)));
@@ -87,6 +91,7 @@ public final class ModItems {
 				output.accept(MUSIC_NOTE);
 				output.accept(ID_CARD);
 				output.accept(BARRIER_PANEL);
+				output.accept(DANCE_BLOCK);
 			})
 			.build());
 

@@ -7,6 +7,7 @@ import cn.erindax.bcya.check.net.CheckPromptPayload;
 import cn.erindax.bcya.check.net.CheckResultPayload;
 import cn.erindax.bcya.check.net.KpCheckPayload;
 import cn.erindax.bcya.client.check.DicePreset;
+import cn.erindax.bcya.client.dance.DanceClient;
 import cn.erindax.bcya.client.gui.CardScreen;
 import cn.erindax.bcya.client.gui.CheckScreen;
 import cn.erindax.bcya.client.gui.DicePresetScreen;
@@ -180,6 +181,7 @@ public class BcyaModClient implements ClientModInitializer {
 		LockRenderer.init();
 		MusicBlockRenderer.init();
 		MusicUploader.init();
+		DanceClient.init();
 		UseItemCallback.EVENT.register((player, world, hand) -> {
 			ItemStack stack = player.getItemInHand(hand);
 			if (!world.isClientSide() || hand != InteractionHand.MAIN_HAND || !stack.is(Items.NETHER_STAR)

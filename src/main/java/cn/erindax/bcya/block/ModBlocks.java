@@ -6,7 +6,9 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
 
 public final class ModBlocks {
 
@@ -16,6 +18,18 @@ public final class ModBlocks {
 			.noLootTable()
 			.noOcclusion()
 			.sound(SoundType.STONE)));
+
+	public static final DanceBlock DANCE_BLOCK = register("dance_block",
+		new DanceBlock(BlockBehaviour.Properties.of()
+			.mapColor(MapColor.COLOR_PURPLE)
+			.strength(1.5F, 6.0F)
+			.noOcclusion()
+			.dynamicShape()
+			.sound(SoundType.METAL)));
+
+	public static final BlockEntityType<DanceBlockEntity> DANCE_BLOCK_ENTITY = Registry.register(
+		BuiltInRegistries.BLOCK_ENTITY_TYPE, BcyaMod.id("dance_block"),
+		BlockEntityType.Builder.of(DanceBlockEntity::new, DANCE_BLOCK).build(null));
 
 	private ModBlocks() {
 	}

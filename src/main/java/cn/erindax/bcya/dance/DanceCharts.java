@@ -19,10 +19,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +48,10 @@ public final class DanceCharts {
 	private static final String[] PITCH_NAMES = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 	private static final Map<String, DanceChart> CHARTS = new ConcurrentHashMap<>();
-	private static volatile List<String> failed = List.of();
+	private static volatile List<Failure> failed = List.of();
+
+	public record Failure(String file, String reason) {
+	}
 
 	private DanceCharts() {
 	}
@@ -57,7 +62,7 @@ public final class DanceCharts {
 
 	public static synchronized int reload() {
 		Map<String, DanceChart> loaded = new LinkedHashMap<>();
-		List<String> broken = new ArrayList<>();
+		List<Failure> broken = new ArrayList<>();
 		DanceChart sample = TwinkleStar.chart();
 		loaded.put(sample.name(), sample);
 		Path dir = directory();
@@ -71,16 +76,15 @@ public final class DanceCharts {
 		}
 		if (Files.isDirectory(dir)) {
 			try (Stream<Path> files = Files.list(dir)) {
-				List<Path> charts = files
-					.filter(Files::isRegularFile)
-					.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(EXTENSION))
-					.sorted()
-					.toList();
-				for (Path file : charts) {
+				List<Path> all = files.filter(Files::isRegularFile).sorted().toList();
+				for (Path file : all) {
 					String fileName = file.getFileName().toString();
+					if (!fileName.toLowerCase(Locale.ROOT).endsWith(EXTENSION)) {
+						continue;
+					}
 					String name = fileName.substring(0, fileName.length() - EXTENSION.length());
 					if (!isValidName(name)) {
-						broken.add(fileName);
+						broken.add(new Failure(fileName, "name"));
 						continue;
 					}
 					try {
@@ -88,8 +92,22 @@ public final class DanceCharts {
 							.getAsJsonObject();
 						loaded.put(name, parse(name, json));
 					} catch (IOException | RuntimeException exception) {
-						broken.add(fileName);
+						broken.add(new Failure(fileName, "format"));
 						BcyaMod.LOGGER.warn("Failed to load dance chart {}", file, exception);
+					}
+				}
+				Set<String> taken = new HashSet<>(loaded.keySet());
+				for (Path file : all) {
+					String fileName = file.getFileName().toString();
+					if (!fileName.toLowerCase(Locale.ROOT).endsWith(OszImporter.EXTENSION)) {
+						continue;
+					}
+					OszImporter.Result result = OszImporter.load(file, taken, MusicStore.directory());
+					for (DanceChart chart : result.charts()) {
+						loaded.put(chart.name(), chart);
+					}
+					if (result.failure() != null) {
+						broken.add(new Failure(fileName, result.failure()));
 					}
 				}
 			} catch (IOException exception) {
@@ -107,7 +125,7 @@ public final class DanceCharts {
 			.thenComparing(String.CASE_INSENSITIVE_ORDER)).toList();
 	}
 
-	public static List<String> failed() {
+	public static List<Failure> failed() {
 		return failed;
 	}
 
@@ -121,7 +139,7 @@ public final class DanceCharts {
 			&& !name.equals(".") && !name.equals("..") && !name.endsWith(".");
 	}
 
-	private static List<DanceChart.Note> cleanNotes(List<DanceChart.Note> source) {
+	static List<DanceChart.Note> cleanNotes(List<DanceChart.Note> source) {
 		List<DanceChart.Note> sorted = new ArrayList<>();
 		for (DanceChart.Note note : source) {
 			if (note.time() >= 0 && note.lane() >= 0 && note.lane() < DanceChart.LANES) {

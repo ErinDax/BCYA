@@ -10,12 +10,14 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 
 public final class DanceCommands {
@@ -89,9 +91,18 @@ public final class DanceCommands {
 		int count = DanceCharts.reload();
 		source.sendSuccess(() -> Component.translatable("commands.bcya.dance.reloaded", count,
 			DanceCharts.directory().toString()), true);
-		if (!DanceCharts.failed().isEmpty()) {
-			source.sendFailure(Component.translatable("commands.bcya.dance.reload_failed",
-				String.join("、", DanceCharts.failed())));
+		List<DanceCharts.Failure> failures = DanceCharts.failed();
+		if (!failures.isEmpty()) {
+			MutableComponent list = Component.empty();
+			for (int i = 0; i < failures.size(); i++) {
+				DanceCharts.Failure failure = failures.get(i);
+				if (i > 0) {
+					list.append(Component.translatable("commands.bcya.dance.failure.separator"));
+				}
+				list.append(Component.translatable("commands.bcya.dance.failure.entry", failure.file(),
+					Component.translatable("commands.bcya.dance.failure." + failure.reason())));
+			}
+			source.sendFailure(Component.translatable("commands.bcya.dance.reload_failed", list));
 		}
 		return count;
 	}

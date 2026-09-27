@@ -31,8 +31,8 @@ public final class DanceArrows {
 	private static final float HALO_SHRINK = 0.6F;
 	private static final float ROUND = 0.07F;
 	private static final float OUTLINE = 0.13F;
-	private static final float[] XS = {-0.86F, -0.04F, -0.04F, 0.8F, 0.8F, -0.04F, -0.04F};
-	private static final float[] YS = {0.0F, -0.8F, -0.34F, -0.34F, 0.34F, 0.34F, 0.8F};
+	private static final float[] XS = {0.0F, 0.82F, 0.0F, -0.82F};
+	private static final float[] YS = {-0.82F, 0.0F, 0.82F, 0.0F};
 
 	private static boolean ready;
 
@@ -103,7 +103,7 @@ public final class DanceArrows {
 			for (int px = 0; px < CELL; px++) {
 				float x = (px + 0.5F - half) / half;
 				float y = (py + 0.5F - half) / half;
-				float distance = laneDistance(lane, x, y) - ROUND;
+				float distance = signedDistance(x, y) - ROUND;
 				float coverage = Mth.clamp(0.5F - distance * half, 0.0F, 1.0F);
 				if (coverage <= 0.0F) {
 					put(image, lane, row, px, py, 0.0F, 0.0F);
@@ -130,7 +130,7 @@ public final class DanceArrows {
 			for (int px = 0; px < CELL; px++) {
 				float x = (px + 0.5F - half) / half;
 				float y = (py + 0.5F - half) / half;
-				float distance = laneDistance(lane, x / HALO_SHRINK, y / HALO_SHRINK) * HALO_SHRINK;
+				float distance = signedDistance(x / HALO_SHRINK, y / HALO_SHRINK) * HALO_SHRINK;
 				float radius = (float) Math.sqrt(x * x + y * y);
 				float edge = Mth.clamp((1.0F - radius) / 0.12F, 0.0F, 1.0F);
 				float outside = Math.max(distance, 0.0F);
@@ -169,15 +169,6 @@ public final class DanceArrows {
 		int grey = Math.round(Mth.clamp(value, 0.0F, 1.0F) * 255.0F);
 		int a = Math.round(Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F);
 		image.setPixelRGBA(column * CELL + px, row * CELL + py, a << 24 | grey << 16 | grey << 8 | grey);
-	}
-
-	private static float laneDistance(int lane, float x, float y) {
-		return switch (lane) {
-			case 0 -> signedDistance(x, y);
-			case 1 -> signedDistance(-y, x);
-			case 2 -> signedDistance(y, x);
-			default -> signedDistance(-x, y);
-		};
 	}
 
 	private static float signedDistance(float x, float y) {

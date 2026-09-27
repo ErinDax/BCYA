@@ -191,7 +191,7 @@ public class DanceScreen extends Screen {
 		spacing = size * 1.12F;
 		lanesLeft = width / 2.0F - spacing * 2.0F - 6.0F;
 		lanesRight = width / 2.0F + spacing * 2.0F + 6.0F;
-		receptorY = 12.0F + size * 0.62F + height * 0.03F;
+		receptorY = capTop() - size * 0.62F - height * 0.02F;
 		panelWidth = Math.min(lanesLeft - 24.0F, 110.0F * ui + 40.0F);
 		compact = panelWidth < 110.0F;
 		sideScale = compact ? 1.0F : Math.min(ui, Math.max(1.0F, panelWidth / 130.0F));
@@ -210,7 +210,7 @@ public class DanceScreen extends Screen {
 	}
 
 	private void drawPlayfield(GuiGraphics graphics, long now) {
-		float pixelsPerMs = (height - receptorY + size) * game.chart().speed() / 1100.0F;
+		float pixelsPerMs = (receptorY + size) * game.chart().speed() / 1100.0F;
 		consumeEffects(now, pixelsPerMs);
 		updateBeams(now);
 
@@ -229,9 +229,9 @@ public class DanceScreen extends Screen {
 			}
 			int x0 = Math.round(laneX(lane) - spacing / 2.0F) + 1;
 			int x1 = Math.round(laneX(lane) + spacing / 2.0F);
-			int top = Math.round(receptorY);
-			graphics.fillGradient(x0, top, x1, Math.round(top + height * 0.6F),
-				withAlpha(LANE_COLORS[lane], 0.26F * beams[lane]), withAlpha(LANE_COLORS[lane], 0.0F));
+			int bottom = Math.round(receptorY);
+			graphics.fillGradient(x0, Math.round(bottom - height * 0.6F), x1, bottom,
+				withAlpha(LANE_COLORS[lane], 0.0F), withAlpha(LANE_COLORS[lane], 0.26F * beams[lane]));
 		}
 		int band = Math.round(size * 0.62F);
 		graphics.fillGradient(left + 1, Math.round(receptorY) - band, right - 1, Math.round(receptorY), 0x00FFFFFF,
@@ -302,12 +302,12 @@ public class DanceScreen extends Screen {
 			if (state == DanceGame.HIT || state == DanceGame.HELD) {
 				continue;
 			}
-			float headY = (float) (receptorY + (game.time(i) - songTime) * pixelsPerMs);
-			if (headY > height + size) {
+			float headY = (float) (receptorY - (game.time(i) - songTime) * pixelsPerMs);
+			if (headY < -size) {
 				break;
 			}
-			float tailY = (float) (receptorY + (game.time(i) + game.hold(i) - songTime) * pixelsPerMs);
-			if (Math.max(headY, tailY) < -size) {
+			float tailY = (float) (receptorY - (game.time(i) + game.hold(i) - songTime) * pixelsPerMs);
+			if (Math.min(headY, tailY) > height + size) {
 				continue;
 			}
 			int lane = game.lane(i);
@@ -335,7 +335,7 @@ public class DanceScreen extends Screen {
 		}
 		float alpha = 1.0F - progress;
 		int tint = mix(LANE_COLORS[lane], MISS_DARK, 0.55F + 0.45F * progress);
-		if (game.hold(index) > 0 && tailY > headY) {
+		if (game.hold(index) > 0 && tailY < headY) {
 			drawTrail(graphics, lane, centerX, missed ? headY : Math.min(headY, receptorY), tailY, 0.0F, alpha * 0.6F,
 				mix(tint, 0xFF505060, 0.5F));
 		}
@@ -347,26 +347,26 @@ public class DanceScreen extends Screen {
 		DanceArrows.draw(graphics, lane, false, centerX + shake, headY, size * shrink, withAlpha(tint, alpha));
 	}
 
-	private void drawTrail(GuiGraphics graphics, int lane, float centerX, float top, float bottom, float energy,
+	private void drawTrail(GuiGraphics graphics, int lane, float centerX, float head, float tail, float energy,
 			float alpha) {
-		drawTrail(graphics, lane, centerX, top, bottom, energy, alpha, LANE_COLORS[lane]);
+		drawTrail(graphics, lane, centerX, head, tail, energy, alpha, LANE_COLORS[lane]);
 	}
 
-	private void drawTrail(GuiGraphics graphics, int lane, float centerX, float top, float bottom, float energy,
+	private void drawTrail(GuiGraphics graphics, int lane, float centerX, float head, float tail, float energy,
 			float alpha, int color) {
-		if (bottom <= top) {
+		if (tail >= head) {
 			return;
 		}
 		float outer = Math.max(4.0F, size * 0.34F);
 		float core = Math.max(2.0F, size * 0.12F);
-		fill(graphics, centerX - outer / 2.0F, top, centerX + outer / 2.0F, bottom, withAlpha(color, 0.62F * alpha));
-		fill(graphics, centerX - outer / 2.0F, top, centerX - outer / 2.0F + 1.0F, bottom,
+		fill(graphics, centerX - outer / 2.0F, tail, centerX + outer / 2.0F, head, withAlpha(color, 0.62F * alpha));
+		fill(graphics, centerX - outer / 2.0F, tail, centerX - outer / 2.0F + 1.0F, head,
 			withAlpha(WHITE, 0.25F * alpha));
-		fill(graphics, centerX + outer / 2.0F - 1.0F, top, centerX + outer / 2.0F, bottom,
+		fill(graphics, centerX + outer / 2.0F - 1.0F, tail, centerX + outer / 2.0F, head,
 			withAlpha(0xFF000000, 0.35F * alpha));
-		fill(graphics, centerX - core / 2.0F, top, centerX + core / 2.0F, bottom,
+		fill(graphics, centerX - core / 2.0F, tail, centerX + core / 2.0F, head,
 			withAlpha(mix(color, WHITE, 0.6F), (0.35F + 0.45F * energy) * alpha));
-		DanceArrows.sprite(graphics, DanceArrows.DOT, centerX, bottom, outer * 1.6F,
+		DanceArrows.sprite(graphics, DanceArrows.DOT, centerX, tail, outer * 1.6F,
 			withAlpha(color, (0.5F + 0.4F * energy) * alpha), true);
 	}
 
@@ -407,7 +407,7 @@ public class DanceScreen extends Screen {
 				case DanceGame.EFFECT_HOLD -> burstSparks(lane, centerX, receptorY, 9, 0.9F, now);
 				case DanceGame.EFFECT_MISS -> {
 					missAt[lane] = now;
-					shatter(lane, centerX, receptorY - DanceRules.HIT_WINDOW * pixelsPerMs, now);
+					shatter(lane, centerX, receptorY + DanceRules.HIT_WINDOW * pixelsPerMs, now);
 				}
 				case DanceGame.EFFECT_DROP -> {
 					missAt[lane] = now;
@@ -633,7 +633,7 @@ public class DanceScreen extends Screen {
 		float alpha = age < 450L * MILLIS ? 1.0F : 1.0F - (float) (age - 450L * MILLIS) / (250L * MILLIS);
 		float pop = age < 90L * MILLIS ? 1.25F - 0.25F * age / (90.0F * MILLIS) : 1.0F;
 		float centerX = width / 2.0F;
-		float centerY = receptorY + (height - receptorY) * 0.34F;
+		float centerY = receptorY * 0.62F;
 		float scale = compact ? 2.0F * ui : 2.2F * sideScale;
 		centerY -= 8.0F * sideScale * easeOut(age / (700.0F * MILLIS));
 		DanceArrows.sprite(graphics, DanceArrows.GLOW, centerX, centerY, LINE * scale * 3.2F,
@@ -865,7 +865,7 @@ public class DanceScreen extends Screen {
 		float scale = Mth.clamp(ui * 0.95F, 1.0F, 1.5F);
 		float pillWidth = font.width(message) * scale + 24.0F;
 		float pillHeight = LINE * scale + 10.0F;
-		float y0 = receptorY + size * 0.75F + 6.0F;
+		float y0 = receptorY - size * 0.75F - 6.0F - pillHeight;
 		float x0 = width / 2.0F - pillWidth / 2.0F;
 		fill(graphics, x0, y0, x0 + pillWidth, y0 + pillHeight, 0xE0180C10);
 		outline(graphics, x0, y0, pillWidth, pillHeight, withAlpha(color, 0.8F));

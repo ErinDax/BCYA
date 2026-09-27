@@ -16,7 +16,6 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.UUID;
 
-import net.minecraft.client.Options;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.locale.Language;
@@ -30,6 +29,8 @@ import org.lwjgl.glfw.GLFW;
 public class DanceScreen extends Screen {
 
 	private static final int[] LANE_COLORS = {0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F};
+	private static final int[] LANE_KEYS = {GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_J, GLFW.GLFW_KEY_K};
+	private static final String[] LANE_KEY_NAMES = {"S", "D", "J", "K"};
 	private static final int[] JUDGE_COLORS = {0xFF62F0FF, 0xFF6CFF6C, 0xFFFFC04D, 0xFFB07050, 0xFFFF4D4D};
 	private static final String[] JUDGE_KEYS = {
 		"screen.bcya.dance.judge.sick", "screen.bcya.dance.judge.good", "screen.bcya.dance.judge.bad",
@@ -133,7 +134,7 @@ public class DanceScreen extends Screen {
 			return true;
 		}
 		if (game.phase() != DanceGame.Phase.RESULTS) {
-			int lane = lane(keyCode, scanCode);
+			int lane = lane(keyCode);
 			if (lane >= 0) {
 				game.press(lane);
 				return true;
@@ -144,7 +145,7 @@ public class DanceScreen extends Screen {
 
 	@Override
 	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
-		int lane = lane(keyCode, scanCode);
+		int lane = lane(keyCode);
 		if (lane >= 0) {
 			game.release(lane);
 			return true;
@@ -152,19 +153,11 @@ public class DanceScreen extends Screen {
 		return super.keyReleased(keyCode, scanCode, modifiers);
 	}
 
-	private int lane(int keyCode, int scanCode) {
-		Options options = minecraft == null ? null : minecraft.options;
-		if (keyCode == GLFW.GLFW_KEY_LEFT || options != null && options.keyLeft.matches(keyCode, scanCode)) {
-			return 0;
-		}
-		if (keyCode == GLFW.GLFW_KEY_DOWN || options != null && options.keyDown.matches(keyCode, scanCode)) {
-			return 1;
-		}
-		if (keyCode == GLFW.GLFW_KEY_UP || options != null && options.keyUp.matches(keyCode, scanCode)) {
-			return 2;
-		}
-		if (keyCode == GLFW.GLFW_KEY_RIGHT || options != null && options.keyRight.matches(keyCode, scanCode)) {
-			return 3;
+	private static int lane(int keyCode) {
+		for (int lane = 0; lane < LANE_KEYS.length; lane++) {
+			if (keyCode == LANE_KEYS[lane]) {
+				return lane;
+			}
 		}
 		return -1;
 	}
@@ -821,25 +814,9 @@ public class DanceScreen extends Screen {
 			outline(graphics, x0, y0, capWidth, capHeight, withAlpha(color, (held ? 1.0F : 0.7F) * alpha));
 			DanceArrows.draw(graphics, lane, false, centerX, y0 + capHeight * 0.36F, capHeight * 0.46F,
 				withAlpha(held ? WHITE : color, alpha));
-			Component label = laneKeyLabel(lane);
-			if (label != null) {
-				text(graphics, label, centerX, y0 + capHeight * 0.66F, labelScale, withAlpha(held ? WHITE : MUTED, alpha), 0);
-			}
+			text(graphics, Component.literal(LANE_KEY_NAMES[lane]), centerX, y0 + capHeight * 0.66F, labelScale,
+				withAlpha(held ? WHITE : MUTED, alpha), 0);
 		}
-	}
-
-	@Nullable
-	private Component laneKeyLabel(int lane) {
-		if (minecraft == null) {
-			return null;
-		}
-		Options options = minecraft.options;
-		return switch (lane) {
-			case 0 -> options.keyLeft.getTranslatedKeyMessage();
-			case 1 -> options.keyDown.getTranslatedKeyMessage();
-			case 2 -> options.keyUp.getTranslatedKeyMessage();
-			default -> options.keyRight.getTranslatedKeyMessage();
-		};
 	}
 
 	private void drawEscKey(GuiGraphics graphics) {

@@ -5,9 +5,7 @@ import cn.erindax.bcya.dance.net.DanceBoardPayload;
 import cn.erindax.bcya.dance.net.DanceOpenPayload;
 import cn.erindax.bcya.dance.net.DanceProgressPayload;
 import cn.erindax.bcya.dance.net.DanceSignalPayload;
-import cn.erindax.bcya.item.MaskItem;
 import cn.erindax.bcya.music.MusicStore;
-import cn.erindax.bcya.util.MaskUtil;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -28,7 +26,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -157,10 +154,6 @@ public final class DanceManager {
 	}
 
 	private static Component displayName(ServerPlayer player) {
-		MaskItem mask = MaskUtil.getWornMask(player);
-		if (mask != null) {
-			return new ItemStack(mask).getHoverName();
-		}
 		return Component.literal(player.getGameProfile().getName());
 	}
 

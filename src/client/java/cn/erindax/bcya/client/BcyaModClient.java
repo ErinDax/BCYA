@@ -33,6 +33,7 @@ import cn.erindax.bcya.client.render.MaskSkins;
 import cn.erindax.bcya.client.render.PatrollerModelLayers;
 import cn.erindax.bcya.client.render.PatrollerRenderer;
 import cn.erindax.bcya.client.render.RemoteTextures;
+import cn.erindax.bcya.client.skywalk.SkywalkClient;
 import cn.erindax.bcya.entity.ModEntities;
 import cn.erindax.bcya.entity.net.PatrollerListPayload;
 import cn.erindax.bcya.entity.net.PatrollerSettingsPayload;
@@ -182,6 +183,7 @@ public class BcyaModClient implements ClientModInitializer {
 		MusicBlockRenderer.init();
 		MusicUploader.init();
 		DanceClient.init();
+		SkywalkClient.init();
 		UseItemCallback.EVENT.register((player, world, hand) -> {
 			ItemStack stack = player.getItemInHand(hand);
 			if (!world.isClientSide() || hand != InteractionHand.MAIN_HAND || !stack.is(Items.NETHER_STAR)

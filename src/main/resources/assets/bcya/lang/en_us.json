@@ -1,6 +1,9 @@
 {
   "block.bcya.barrier_panel": "Barrier Panel",
   "block.bcya.dance_block": "Dance Block",
+  "commands.bcya.skywalk.on": "Enabled",
+  "commands.bcya.skywalk.off": "Disabled",
+  "commands.bcya.skywalk.depth": "Set to %s blocks",
   "commands.bcya.dance.on": "Dance blocks enabled",
   "commands.bcya.dance.off": "Dance blocks disabled",
   "commands.bcya.dance.not_enabled": "Dance blocks are disabled, run /BCYA dance true first",

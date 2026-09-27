@@ -23,6 +23,7 @@ import cn.erindax.bcya.mask.slot.net.MaskSlotHandler;
 import cn.erindax.bcya.music.MusicHandler;
 import cn.erindax.bcya.skin.TexturePayload;
 import cn.erindax.bcya.skin.TextureStore;
+import cn.erindax.bcya.skywalk.Skywalk;
 import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
 
 import net.fabricmc.api.ModInitializer;
@@ -61,6 +62,7 @@ public class BcyaMod implements ModInitializer {
 		CardHandler.init();
 		CheckHandler.init();
 		DanceManager.init();
+		Skywalk.init();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			sender.sendPacket(MaskRulesState.get(server).toVoicePayload());

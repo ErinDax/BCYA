@@ -64,7 +64,8 @@ public final class BcyaCommands {
 			.then(CheckCommands.kp())
 			.then(CheckCommands.roll())
 			.then(CheckCommands.log())
-			.then(DanceCommands.dance());
+			.then(DanceCommands.dance())
+			.then(SkywalkCommands.skywalk());
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> btrpg() {

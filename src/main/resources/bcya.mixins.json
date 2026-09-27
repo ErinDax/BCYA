@@ -3,7 +3,8 @@
   "package": "cn.erindax.bcya.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "InventoryMenuMixin"
+    "InventoryMenuMixin",
+    "ServerGamePacketListenerImplMixin"
   ],
   "injectors": {
     "defaultRequire": 1

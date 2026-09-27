@@ -9,6 +9,8 @@
     "InventoryScreenMaskSlotMixin",
     "ItemInHandLayerMixin",
     "PlayerRendererNameTagMixin",
+    "PlayerSkywalkMixin",
+    "RemotePlayerSkywalkMixin",
     "SoundBufferLibraryMixin",
     "SoundEngineAccessor",
     "SoundManagerAccessor"

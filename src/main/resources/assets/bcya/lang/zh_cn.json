@@ -1,6 +1,9 @@
 {
   "block.bcya.barrier_panel": "屏障面板",
   "block.bcya.dance_block": "跳舞方块",
+  "commands.bcya.skywalk.on": "已开启",
+  "commands.bcya.skywalk.off": "已关闭",
+  "commands.bcya.skywalk.depth": "已设为 %s 格",
   "commands.bcya.dance.on": "跳舞方块已开启",
   "commands.bcya.dance.off": "跳舞方块已关闭",
   "commands.bcya.dance.not_enabled": "跳舞方块尚未开启，请先执行 /BCYA dance true",

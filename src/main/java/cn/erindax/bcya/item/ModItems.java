@@ -32,10 +32,11 @@ public final class ModItems {
 	public static final MaskItem LOGIC_CAT_MASK = mask("logic_cat_mask", 0x4a3730, true);
 	public static final MaskItem CALICO_CAT_MASK = mask("calico_cat_mask", 0x5a5351, true);
 	public static final MaskItem BLACK_CAT_COLLAR = mask("black_cat_collar", 0xbd2828, true, false);
+	public static final MaskItem WAITER_MASK = mask("waiter_mask", 0xff3333, false, false);
 
 	public static final List<MaskItem> MASKS = List.of(
 		CAT_MASK, FOX_MASK, GOAT_MASK, RABBIT_MASK, DOG_MASK, WOLF_MASK, BEAR_MASK, LOGIC_CAT_MASK, CALICO_CAT_MASK,
-		BLACK_CAT_COLLAR);
+		BLACK_CAT_COLLAR, WAITER_MASK);
 
 	public static final Item MAGIC_WAND = register("magic_wand",
 		new MagicWandItem(new Item.Properties()

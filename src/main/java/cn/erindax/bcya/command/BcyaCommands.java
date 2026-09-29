@@ -4,7 +4,7 @@ import cn.erindax.bcya.BcyaMod;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.manage.WandWhitelist;
 import cn.erindax.bcya.mask.MaskRulesState;
-import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
+import cn.erindax.bcya.mask.net.MaskRulesHandler;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -12,7 +12,6 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -24,7 +23,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -114,10 +112,7 @@ public final class BcyaCommands {
 		boolean active = state.toggle(rule, BuiltInRegistries.ITEM.getKey(mask));
 
 		if (rule == MaskRulesState.Rule.VOICE_DISABLED) {
-			MaskVoiceSyncPayload payload = state.toVoicePayload();
-			for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-				ServerPlayNetworking.send(player, payload);
-			}
+			MaskRulesHandler.syncVoice(server);
 		}
 
 		Component maskName = new ItemStack(mask).getHoverName();

@@ -3,6 +3,7 @@ package cn.erindax.bcya.manage;
 import cn.erindax.bcya.entity.net.PatrollerSettingsHandler;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.mask.MaskSwapper;
+import cn.erindax.bcya.mask.net.MaskRulesHandler;
 import cn.erindax.bcya.mask.net.MaskSkinHandler;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 	private static final int SWAP_SLOT = SIZE - 1;
 	private static final int MASK_SKIN_SLOT = SIZE - 2;
 	private static final int PATROL_SLOT = SIZE - 3;
+	private static final int MASK_RULES_SLOT = SIZE - 4;
 	private static final int MAX_PLAYERS = SIZE - 9;
 
 	private final MinecraftServer server;
@@ -62,6 +64,8 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 			"screen.bcya.players.mask_skins", "screen.bcya.players.mask_skins_lore"));
 		container.setItem(PATROL_SLOT, ManagerItems.button(Items.ARMOR_STAND,
 			"screen.bcya.players.patrollers", "screen.bcya.players.patrollers_lore"));
+		container.setItem(MASK_RULES_SLOT, ManagerItems.button(Items.WRITABLE_BOOK,
+			"screen.bcya.players.mask_rules", "screen.bcya.players.mask_rules_lore"));
 
 		for (int i = 0; i < SIZE; i++) {
 			addSlot(new LockedSlot(container, i));
@@ -96,6 +100,11 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 		if (slotId == PATROL_SLOT) {
 			viewer.closeContainer();
 			PatrollerSettingsHandler.openList(viewer);
+			return;
+		}
+		if (slotId == MASK_RULES_SLOT) {
+			viewer.closeContainer();
+			MaskRulesHandler.openEditor(viewer);
 			return;
 		}
 		if (slotId < players.size()) {

@@ -16,6 +16,7 @@ import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.lock.LockHandler;
 import cn.erindax.bcya.manage.WandWhitelist;
 import cn.erindax.bcya.mask.MaskRulesState;
+import cn.erindax.bcya.mask.net.MaskRulesHandler;
 import cn.erindax.bcya.mask.net.MaskSkinHandler;
 import cn.erindax.bcya.mask.slot.MaskSlotEvents;
 import cn.erindax.bcya.mask.slot.ModAttachments;
@@ -54,6 +55,7 @@ public class BcyaMod implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(MaskVoiceSyncPayload.TYPE, MaskVoiceSyncPayload.STREAM_CODEC);
 		PayloadTypeRegistry.playS2C().register(TexturePayload.TYPE, TexturePayload.STREAM_CODEC);
 		MaskSkinHandler.init();
+		MaskRulesHandler.init();
 		MaskSlotHandler.init();
 		PatrollerSettingsHandler.init();
 		PatrolRecorder.init();

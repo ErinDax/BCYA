@@ -4,6 +4,7 @@ import cn.erindax.bcya.mask.net.MaskSkinSyncPayload;
 import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -117,6 +118,13 @@ public class MaskRulesState extends SavedData {
 
 	public Set<ResourceLocation> getMasks(Rule rule) {
 		return Collections.unmodifiableSet(setFor(rule));
+	}
+
+	public void set(Rule rule, Collection<ResourceLocation> masks) {
+		Set<ResourceLocation> set = setFor(rule);
+		set.clear();
+		set.addAll(masks);
+		setDirty();
 	}
 
 	@Nullable

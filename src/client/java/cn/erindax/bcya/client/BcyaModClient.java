@@ -14,6 +14,7 @@ import cn.erindax.bcya.client.gui.DicePresetScreen;
 import cn.erindax.bcya.client.gui.KeySkinScreen;
 import cn.erindax.bcya.client.gui.LockOwnerScreen;
 import cn.erindax.bcya.client.gui.LockPasswordScreen;
+import cn.erindax.bcya.client.gui.MaskRulesScreen;
 import cn.erindax.bcya.client.gui.MaskSkinScreen;
 import cn.erindax.bcya.client.gui.MusicNoteScreen;
 import cn.erindax.bcya.client.gui.PatrollerListScreen;
@@ -44,6 +45,7 @@ import cn.erindax.bcya.lock.net.KeySkinListPayload;
 import cn.erindax.bcya.lock.net.LockScreenPayload;
 import cn.erindax.bcya.lock.net.LockSyncPayload;
 import cn.erindax.bcya.lock.net.LockUpdatePayload;
+import cn.erindax.bcya.mask.net.MaskRulesPayload;
 import cn.erindax.bcya.mask.net.MaskSkinEditorPayload;
 import cn.erindax.bcya.mask.net.MaskSkinSyncPayload;
 import cn.erindax.bcya.mask.slot.MaskSlots;
@@ -110,6 +112,8 @@ public class BcyaModClient implements ClientModInitializer {
 			MaskSkins.setOverrides(payload.overrides()));
 		ClientPlayNetworking.registerGlobalReceiver(MaskSkinEditorPayload.TYPE, (payload, context) ->
 			context.client().setScreen(new MaskSkinScreen(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(MaskRulesPayload.TYPE, (payload, context) ->
+			context.client().setScreen(new MaskRulesScreen(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(LockSyncPayload.TYPE, (payload, context) ->
 			ClientLocks.replace(payload));
 		ClientPlayNetworking.registerGlobalReceiver(LockUpdatePayload.TYPE, (payload, context) ->

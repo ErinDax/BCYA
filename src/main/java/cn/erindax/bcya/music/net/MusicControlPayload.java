@@ -10,7 +10,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 public record MusicControlPayload(UUID session, Action action, String track, int version, int range, int entityId,
-		BlockPos pos) implements CustomPacketPayload {
+		BlockPos pos, int offset) implements CustomPacketPayload {
 
 	public enum Action {
 		PLAY, PAUSE, RESUME, STOP
@@ -25,12 +25,12 @@ public record MusicControlPayload(UUID session, Action action, String track, int
 		CustomPacketPayload.codec(MusicControlPayload::write, MusicControlPayload::new);
 
 	public static MusicControlPayload simple(UUID session, Action action) {
-		return new MusicControlPayload(session, action, "", 0, 0, NO_ENTITY, BlockPos.ZERO);
+		return new MusicControlPayload(session, action, "", 0, 0, NO_ENTITY, BlockPos.ZERO, 0);
 	}
 
 	private MusicControlPayload(RegistryFriendlyByteBuf buf) {
 		this(buf.readUUID(), Action.values()[buf.readVarInt()], buf.readUtf(), buf.readInt(), buf.readVarInt(),
-			buf.readInt(), buf.readBlockPos());
+			buf.readInt(), buf.readBlockPos(), buf.readVarInt());
 	}
 
 	private void write(RegistryFriendlyByteBuf buf) {
@@ -41,6 +41,7 @@ public record MusicControlPayload(UUID session, Action action, String track, int
 		buf.writeVarInt(range);
 		buf.writeInt(entityId);
 		buf.writeBlockPos(pos);
+		buf.writeVarInt(offset);
 	}
 
 	public boolean followsEntity() {

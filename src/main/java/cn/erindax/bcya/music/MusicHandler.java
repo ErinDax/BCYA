@@ -3,6 +3,7 @@ package cn.erindax.bcya.music;
 import cn.erindax.bcya.item.ModComponents;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.item.MusicNoteItem;
+import cn.erindax.bcya.music.net.MusicAckPayload;
 import cn.erindax.bcya.music.net.MusicBlockSyncPayload;
 import cn.erindax.bcya.music.net.MusicBlockUpdatePayload;
 import cn.erindax.bcya.music.net.MusicControlPayload;
@@ -14,6 +15,7 @@ import cn.erindax.bcya.music.net.MusicUploadPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -38,11 +40,14 @@ public final class MusicHandler {
 		PayloadTypeRegistry.playC2S().register(MusicNoteActionPayload.TYPE, MusicNoteActionPayload.STREAM_CODEC);
 		PayloadTypeRegistry.playC2S().register(MusicRequestPayload.TYPE, MusicRequestPayload.STREAM_CODEC);
 		PayloadTypeRegistry.playC2S().register(MusicUploadPayload.TYPE, MusicUploadPayload.STREAM_CODEC);
+		PayloadTypeRegistry.playC2S().register(MusicAckPayload.TYPE, MusicAckPayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(MusicNoteActionPayload.TYPE,
 			(payload, context) -> onAction(context.player(), payload));
 		ServerPlayNetworking.registerGlobalReceiver(MusicRequestPayload.TYPE,
 			(payload, context) -> onRequest(context.player(), payload));
+		ServerPlayNetworking.registerGlobalReceiver(MusicAckPayload.TYPE,
+			(payload, context) -> MusicStore.onAck(context.player(), payload));
 		ServerPlayNetworking.registerGlobalReceiver(MusicUploadPayload.TYPE,
 			(payload, context) -> MusicUploads.receive(context.player(), payload));
 
@@ -58,6 +63,8 @@ public final class MusicHandler {
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> MusicBlocks.sendAll(newPlayer));
 		ServerTickEvents.END_SERVER_TICK.register(MusicStore::tick);
+		ServerTickEvents.END_SERVER_TICK.register(MusicSessions::tick);
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> MusicSessions.clear());
 
 		MusicBlocks.init();
 		MusicStore.ensureDirectory();
@@ -95,7 +102,7 @@ public final class MusicHandler {
 			held.remove(ModComponents.MUSIC_TRACK);
 			return;
 		}
-		if (MusicStore.load(track) == null) {
+		if (!MusicStore.exists(track)) {
 			player.displayClientMessage(Component.translatable("item.bcya.music_note.missing", track), true);
 			return;
 		}

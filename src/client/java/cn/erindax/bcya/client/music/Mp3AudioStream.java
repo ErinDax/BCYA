@@ -21,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 public class Mp3AudioStream implements AudioStream {
 
 	private static final int MAX_FRAME_BYTES = 1152 * 2 * 2;
+	private static final int WARMUP_FRAMES = 2;
 
 	private final Bitstream bitstream;
 	private final Decoder decoder = new Decoder();
@@ -52,6 +53,41 @@ public class Mp3AudioStream implements AudioStream {
 	@Override
 	public AudioFormat getFormat() {
 		return format;
+	}
+
+	public long skip(long bytes) throws IOException {
+		long skipped = 0L;
+		int frameSize = Math.max(1, format.getFrameSize());
+		while (!finished) {
+			Header header = pending != null ? pending : readHeader();
+			pending = null;
+			if (header == null) {
+				finished = true;
+				break;
+			}
+			long frameBytes = (long) samplesPerFrame(header) * frameSize;
+			if (skipped + frameBytes > bytes) {
+				pending = header;
+				break;
+			}
+			if (skipped + frameBytes * (WARMUP_FRAMES + 1) > bytes) {
+				try {
+					decoder.decodeFrame(header, bitstream);
+				} catch (DecoderException e) {
+					throw new IOException(e);
+				}
+			}
+			bitstream.closeFrame();
+			skipped += frameBytes;
+		}
+		return skipped;
+	}
+
+	private static int samplesPerFrame(Header header) {
+		if (header.layer() == 1) {
+			return 384;
+		}
+		return header.layer() == 3 && header.version() != Header.MPEG1 ? 576 : 1152;
 	}
 
 	@Override

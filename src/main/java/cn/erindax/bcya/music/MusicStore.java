@@ -1,25 +1,24 @@
 package cn.erindax.bcya.music;
 
 import cn.erindax.bcya.BcyaMod;
+import cn.erindax.bcya.music.net.MusicAckPayload;
 import cn.erindax.bcya.music.net.MusicDataPayload;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.CRC32;
@@ -32,11 +31,19 @@ import org.jetbrains.annotations.Nullable;
 public final class MusicStore {
 
 	public static final int MAX_BYTES = 24 * 1024 * 1024;
-	public static final int CHUNK_BYTES = 256 * 1024;
+	public static final int CHUNK_BYTES = 32 * 1024;
+
+	private static final int WINDOW = 2;
+	private static final int MAX_IN_FLIGHT = 3;
+	private static final int MAX_QUEUED = 4;
+	private static final long ACK_TIMEOUT_NANOS = 15_000_000_000L;
+	private static final long CACHE_BYTES = 128L * 1024 * 1024;
 
 	private static final Pattern NAME = Pattern.compile("[^\\\\/:*?\"<>|\\p{Cntrl}]{1,64}");
-	private static final Map<String, Entry> CACHE = new ConcurrentHashMap<>();
-	private static final Map<UUID, Deque<MusicDataPayload>> QUEUES = new HashMap<>();
+	private static final Map<String, Entry> CACHE = new LinkedHashMap<>(16, 0.75F, true);
+	private static final ChunkScheduler<UUID> DOWNLOADS =
+		new ChunkScheduler<>(CHUNK_BYTES, WINDOW, MAX_IN_FLIGHT, MAX_QUEUED, ACK_TIMEOUT_NANOS);
+	private static long cachedBytes;
 
 	public record Entry(byte[] data, int version, long modified, long size) {
 	}
@@ -70,9 +77,17 @@ public final class MusicStore {
 	}
 
 	public static void save(String name, byte[] data) throws IOException {
-		Files.createDirectories(directory());
-		Files.write(directory().resolve(name), data);
-		CACHE.remove(name);
+		Path dir = directory();
+		Files.createDirectories(dir);
+		Path target = dir.resolve(name);
+		Path temp = dir.resolve(name + ".part");
+		Files.write(temp, data);
+		try {
+			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		} catch (AtomicMoveNotSupportedException e) {
+			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+		}
+		uncache(name);
 	}
 
 	public static List<String> listAvailable() {
@@ -93,6 +108,18 @@ public final class MusicStore {
 		}
 	}
 
+	public static boolean exists(String name) {
+		if (!isValidName(name)) {
+			return false;
+		}
+		Path file = directory().resolve(name);
+		try {
+			return Files.isRegularFile(file) && Files.size(file) <= MAX_BYTES;
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
 	@Nullable
 	public static Entry load(String name) {
 		if (!isValidName(name)) {
@@ -101,7 +128,7 @@ public final class MusicStore {
 		Path file = directory().resolve(name);
 		try {
 			if (!Files.isRegularFile(file)) {
-				CACHE.remove(name);
+				uncache(name);
 				return null;
 			}
 			BasicFileAttributes attributes = Files.readAttributes(file, BasicFileAttributes.class);
@@ -111,7 +138,7 @@ public final class MusicStore {
 				BcyaMod.LOGGER.warn("Music file {} is larger than {} bytes and will be ignored", file, MAX_BYTES);
 				return null;
 			}
-			Entry cached = CACHE.get(name);
+			Entry cached = cached(name);
 			if (cached != null && cached.modified() == modified && cached.size() == size) {
 				return cached;
 			}
@@ -119,7 +146,7 @@ public final class MusicStore {
 			CRC32 crc = new CRC32();
 			crc.update(data);
 			Entry entry = new Entry(data, (int) crc.getValue(), modified, size);
-			CACHE.put(name, entry);
+			cache(name, entry);
 			return entry;
 		} catch (IOException e) {
 			BcyaMod.LOGGER.warn("Failed to read music {}", file, e);
@@ -129,39 +156,35 @@ public final class MusicStore {
 
 	public static void sendTo(ServerPlayer player, String name) {
 		Entry entry = load(name);
-		if (entry == null) {
-			return;
+		if (entry != null && DOWNLOADS.offer(player.getUUID(), name, entry.version(), entry.data())) {
+			DOWNLOADS.pump(System.nanoTime(), sink(player.server));
 		}
-		byte[] data = entry.data();
-		int total = Math.max(1, (data.length + CHUNK_BYTES - 1) / CHUNK_BYTES);
-		Deque<MusicDataPayload> queue = QUEUES.computeIfAbsent(player.getUUID(), id -> new ArrayDeque<>());
-		for (int i = 0; i < total; i++) {
-			int from = i * CHUNK_BYTES;
-			int to = Math.min(data.length, from + CHUNK_BYTES);
-			queue.add(new MusicDataPayload(name, entry.version(), i, total, Arrays.copyOfRange(data, from, to)));
-		}
+	}
+
+	public static void onAck(ServerPlayer player, MusicAckPayload payload) {
+		DOWNLOADS.ack(player.getUUID(), payload.track(), payload.version(), payload.index(), System.nanoTime(),
+			sink(player.server));
 	}
 
 	public static void dropQueue(UUID player) {
-		QUEUES.remove(player);
+		DOWNLOADS.drop(player);
 	}
 
 	public static void tick(MinecraftServer server) {
-		if (QUEUES.isEmpty()) {
-			return;
+		if (!DOWNLOADS.isEmpty()) {
+			DOWNLOADS.tick(System.nanoTime(), id -> server.getPlayerList().getPlayer(id) != null, sink(server));
 		}
-		Iterator<Map.Entry<UUID, Deque<MusicDataPayload>>> it = QUEUES.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry<UUID, Deque<MusicDataPayload>> entry = it.next();
-			ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-			MusicDataPayload next = entry.getValue().poll();
-			if (player != null && next != null) {
-				ServerPlayNetworking.send(player, next);
+	}
+
+	private static ChunkScheduler.Sink<UUID> sink(MinecraftServer server) {
+		return (id, name, version, index, total, chunk) -> {
+			ServerPlayer player = server.getPlayerList().getPlayer(id);
+			if (player == null) {
+				return false;
 			}
-			if (player == null || entry.getValue().isEmpty()) {
-				it.remove();
-			}
-		}
+			ServerPlayNetworking.send(player, new MusicDataPayload(name, version, index, total, chunk));
+			return true;
+		};
 	}
 
 	public static void ensureDirectory() {
@@ -169,6 +192,34 @@ public final class MusicStore {
 			Files.createDirectories(directory());
 		} catch (IOException e) {
 			BcyaMod.LOGGER.warn("Failed to create music directory {}", directory(), e);
+		}
+	}
+
+	@Nullable
+	private static synchronized Entry cached(String name) {
+		return CACHE.get(name);
+	}
+
+	private static synchronized void cache(String name, Entry entry) {
+		Entry old = CACHE.put(name, entry);
+		if (old != null) {
+			cachedBytes -= old.data().length;
+		}
+		cachedBytes += entry.data().length;
+		Iterator<Map.Entry<String, Entry>> it = CACHE.entrySet().iterator();
+		while (cachedBytes > CACHE_BYTES && it.hasNext()) {
+			Map.Entry<String, Entry> eldest = it.next();
+			if (!eldest.getKey().equals(name)) {
+				cachedBytes -= eldest.getValue().data().length;
+				it.remove();
+			}
+		}
+	}
+
+	private static synchronized void uncache(String name) {
+		Entry old = CACHE.remove(name);
+		if (old != null) {
+			cachedBytes -= old.data().length;
 		}
 	}
 }

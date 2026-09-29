@@ -11,9 +11,12 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.CRC32;
 
+import net.minecraft.Util;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +24,9 @@ import net.minecraft.world.item.ItemStack;
 public final class MusicUploads {
 
 	private static final int MAX_CHUNKS = MusicStore.MAX_BYTES / MusicUploadPayload.CHUNK_BYTES + 1;
+
+	private record Outcome(boolean saved, Component message) {
+	}
 
 	private static final class Assembly {
 		private final String name;
@@ -81,25 +87,49 @@ public final class MusicUploads {
 			return;
 		}
 		ASSEMBLIES.remove(player.getUUID());
-		byte[] data = concat(assembly.parts, (int) assembly.size);
+		byte[][] parts = assembly.parts;
+		int size = (int) assembly.size;
+		int version = assembly.version;
+		MinecraftServer server = player.server;
+		UUID id = player.getUUID();
+		CompletableFuture.supplyAsync(() -> store(name, parts, size, version), Util.ioPool())
+			.whenComplete((outcome, error) -> server.execute(() -> complete(server, id, hand, name,
+				error == null ? outcome : failed(name, error))));
+	}
+
+	private static Outcome store(String name, byte[][] parts, int size, int version) {
+		byte[] data = concat(parts, size);
 		CRC32 crc = new CRC32();
 		crc.update(data);
-		if ((int) crc.getValue() != assembly.version || !MusicStore.looksValid(name, data)) {
-			finish(player, hand, Component.translatable("item.bcya.music_note.upload_invalid", name));
-			return;
+		if ((int) crc.getValue() != version || !MusicStore.looksValid(name, data)) {
+			return new Outcome(false, Component.translatable("item.bcya.music_note.upload_invalid", name));
 		}
 		try {
 			MusicStore.save(name, data);
 		} catch (IOException e) {
-			BcyaMod.LOGGER.warn("Failed to save uploaded music {}", name, e);
-			finish(player, hand, Component.translatable("item.bcya.music_note.upload_failed", e.getMessage()));
+			return failed(name, e);
+		}
+		return new Outcome(true, Component.translatable("item.bcya.music_note.upload_ok", MusicNoteItem.displayName(name)));
+	}
+
+	private static Outcome failed(String name, Throwable error) {
+		BcyaMod.LOGGER.warn("Failed to save uploaded music {}", name, error);
+		return new Outcome(false, Component.translatable("item.bcya.music_note.upload_failed",
+			String.valueOf(error.getMessage())));
+	}
+
+	private static void complete(MinecraftServer server, UUID id, InteractionHand hand, String name, Outcome outcome) {
+		ServerPlayer player = server.getPlayerList().getPlayer(id);
+		if (player == null) {
 			return;
 		}
-		ItemStack held = player.getItemInHand(hand);
-		if (held.is(ModItems.MUSIC_NOTE)) {
-			held.set(ModComponents.MUSIC_TRACK, name);
+		if (outcome.saved()) {
+			ItemStack held = player.getItemInHand(hand);
+			if (held.is(ModItems.MUSIC_NOTE)) {
+				held.set(ModComponents.MUSIC_TRACK, name);
+			}
 		}
-		finish(player, hand, Component.translatable("item.bcya.music_note.upload_ok", MusicNoteItem.displayName(name)));
+		finish(player, hand, outcome.message());
 	}
 
 	private static void finish(ServerPlayer player, InteractionHand hand, Component message) {

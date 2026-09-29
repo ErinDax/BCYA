@@ -23,14 +23,12 @@ import java.util.function.Consumer;
 
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.ChannelAccess;
 import net.minecraft.client.sounds.JOrbisAudioStream;
 import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.Entity;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -38,9 +36,31 @@ public final class MusicPlayer {
 
 	private static final String SOUND_PREFIX = "sounds/" + MusicSoundInstance.PATH_PREFIX;
 	private static final String SOUND_SUFFIX = ".ogg";
+	private static final long NANOS_PER_MILLI = 1_000_000L;
+
+	private static final class Pending {
+		private final MusicControlPayload payload;
+		private final long receivedAt;
+		private long pausedAt;
+		private long pausedTotal;
+
+		private Pending(MusicControlPayload payload, long receivedAt) {
+			this.payload = payload;
+			this.receivedAt = receivedAt;
+		}
+
+		private boolean paused() {
+			return pausedAt != 0L;
+		}
+
+		private long offsetMillis(long now) {
+			long end = paused() ? pausedAt : now;
+			return payload.offset() + Math.max(0L, end - receivedAt - pausedTotal) / NANOS_PER_MILLI;
+		}
+	}
 
 	private static final Map<UUID, MusicSoundInstance> PLAYING = new ConcurrentHashMap<>();
-	private static final Map<UUID, MusicControlPayload> WAITING = new HashMap<>();
+	private static final Map<UUID, Pending> WAITING = new HashMap<>();
 
 	private MusicPlayer() {
 	}
@@ -48,50 +68,70 @@ public final class MusicPlayer {
 	public static void handle(MusicControlPayload payload) {
 		switch (payload.action()) {
 			case PLAY -> play(payload);
-			case PAUSE -> withChannel(payload.session(), Channel::pause);
-			case RESUME -> withChannel(payload.session(), Channel::unpause);
+			case PAUSE -> pause(payload.session());
+			case RESUME -> resume(payload.session());
 			case STOP -> stop(payload.session());
 		}
 	}
 
 	private static void play(MusicControlPayload payload) {
 		stop(payload.session());
+		Pending pending = new Pending(payload, System.nanoTime());
 		if (ClientMusic.has(payload.track(), payload.version())) {
-			start(payload);
+			start(pending);
 		} else {
-			WAITING.put(payload.session(), payload);
-			ClientMusic.request(payload.track());
+			WAITING.put(payload.session(), pending);
+			ClientMusic.request(payload.track(), payload.version());
+		}
+	}
+
+	private static void pause(UUID session) {
+		Pending pending = WAITING.get(session);
+		if (pending == null) {
+			withChannel(session, Channel::pause);
+		} else if (!pending.paused()) {
+			pending.pausedAt = System.nanoTime();
+		}
+	}
+
+	private static void resume(UUID session) {
+		Pending pending = WAITING.get(session);
+		if (pending == null) {
+			withChannel(session, Channel::unpause);
+			return;
+		}
+		if (pending.paused()) {
+			pending.pausedTotal += System.nanoTime() - pending.pausedAt;
+			pending.pausedAt = 0L;
+		}
+		if (ClientMusic.get(pending.payload.track()) != null) {
+			WAITING.remove(session);
+			start(pending);
 		}
 	}
 
 	static void onTrackReady(String track) {
-		List<MusicControlPayload> ready = new ArrayList<>();
-		Iterator<MusicControlPayload> it = WAITING.values().iterator();
+		List<Pending> ready = new ArrayList<>();
+		Iterator<Pending> it = WAITING.values().iterator();
 		while (it.hasNext()) {
-			MusicControlPayload payload = it.next();
-			if (payload.track().equals(track)) {
-				ready.add(payload);
+			Pending pending = it.next();
+			if (pending.payload.track().equals(track) && !pending.paused()) {
+				ready.add(pending);
 				it.remove();
 			}
 		}
 		ready.forEach(MusicPlayer::start);
 	}
 
-	private static void start(MusicControlPayload payload) {
+	private static void start(Pending pending) {
 		Minecraft minecraft = Minecraft.getInstance();
-		ClientLevel level = minecraft.level;
-		if (level == null) {
+		if (minecraft.level == null) {
 			return;
 		}
-		Entity entity = null;
-		if (payload.followsEntity()) {
-			entity = level.getEntity(payload.entityId());
-			if (entity == null) {
-				return;
-			}
-		}
+		MusicControlPayload payload = pending.payload;
+		long now = System.nanoTime();
 		MusicSoundInstance instance = new MusicSoundInstance(payload.session(), payload.track(), payload.range(),
-			entity, payload.pos());
+			payload.entityId(), payload.pos(), pending.offsetMillis(now), now);
 		PLAYING.put(payload.session(), instance);
 		minecraft.getSoundManager().play(instance);
 	}
@@ -119,8 +159,8 @@ public final class MusicPlayer {
 				return true;
 			}
 		}
-		for (MusicControlPayload payload : WAITING.values()) {
-			if (payload.track().equals(track)) {
+		for (Pending pending : WAITING.values()) {
+			if (pending.payload.track().equals(track)) {
 				return true;
 			}
 		}
@@ -148,9 +188,11 @@ public final class MusicPlayer {
 			return CompletableFuture.failedFuture(new IOException("Music data for session " + session + " is unavailable"));
 		}
 		String track = instance.track();
+		long offsetMillis = instance.offsetMillis();
+		long offsetAt = instance.offsetAt();
 		return CompletableFuture.supplyAsync(() -> {
 			try {
-				return open(track, data);
+				return SeekingAudioStream.seek(open(track, data), offsetMillis, offsetAt);
 			} catch (IOException e) {
 				throw new CompletionException(e);
 			}

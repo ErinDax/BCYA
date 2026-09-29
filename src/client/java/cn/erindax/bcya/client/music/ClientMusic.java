@@ -1,21 +1,25 @@
 package cn.erindax.bcya.client.music;
 
+import cn.erindax.bcya.music.net.MusicAckPayload;
 import cn.erindax.bcya.music.net.MusicDataPayload;
 import cn.erindax.bcya.music.net.MusicRequestPayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
 
 import org.jetbrains.annotations.Nullable;
 
 public final class ClientMusic {
 
 	private static final int MAX_CACHED_TRACKS = 12;
+	private static final long REQUEST_TIMEOUT_NANOS = 60_000_000_000L;
 
 	private record Cached(int version, byte[] data) {
 	}
@@ -33,7 +37,7 @@ public final class ClientMusic {
 
 	private static final Map<String, Cached> CACHE = new LinkedHashMap<>(16, 0.75F, true);
 	private static final Map<String, Assembly> PENDING = new HashMap<>();
-	private static final Set<String> REQUESTED = new HashSet<>();
+	private static final Map<String, Long> REQUESTED = new HashMap<>();
 
 	private ClientMusic() {
 	}
@@ -54,10 +58,22 @@ public final class ClientMusic {
 		}
 	}
 
-	public static void request(String track) {
-		if (REQUESTED.add(track)) {
-			ClientPlayNetworking.send(new MusicRequestPayload(track));
+	public static void request(String track, int version) {
+		long now = System.nanoTime();
+		Long last = REQUESTED.get(track);
+		if (last != null && now - last <= REQUEST_TIMEOUT_NANOS) {
+			return;
 		}
+		REQUESTED.put(track, now);
+		Minecraft minecraft = Minecraft.getInstance();
+		CompletableFuture.supplyAsync(() -> MusicDiskCache.read(track, version), Util.ioPool())
+			.thenAcceptAsync(data -> {
+				if (data != null) {
+					store(track, version, data);
+				} else if (minecraft.getConnection() != null) {
+					ClientPlayNetworking.send(new MusicRequestPayload(track));
+				}
+			}, minecraft);
 	}
 
 	public static void receive(MusicDataPayload payload) {
@@ -69,6 +85,7 @@ public final class ClientMusic {
 			assembly = new Assembly(payload.version(), payload.total());
 			PENDING.put(payload.track(), assembly);
 		}
+		ClientPlayNetworking.send(new MusicAckPayload(payload.track(), payload.version(), payload.index()));
 		if (assembly.parts[payload.index()] == null) {
 			assembly.parts[payload.index()] = payload.data();
 			assembly.received++;
@@ -86,8 +103,18 @@ public final class ClientMusic {
 			System.arraycopy(part, 0, data, offset, part.length);
 			offset += part.length;
 		}
+		PENDING.remove(payload.track());
+		String track = payload.track();
+		int version = assembly.version;
+		if (!Minecraft.getInstance().isLocalServer()) {
+			Util.ioPool().execute(() -> MusicDiskCache.write(track, version, data));
+		}
+		store(track, version, data);
+	}
+
+	private static void store(String track, int version, byte[] data) {
 		synchronized (CACHE) {
-			CACHE.put(payload.track(), new Cached(assembly.version, data));
+			CACHE.put(track, new Cached(version, data));
 			while (CACHE.size() > MAX_CACHED_TRACKS) {
 				String eldest = CACHE.keySet().iterator().next();
 				if (MusicPlayer.isTrackInUse(eldest)) {
@@ -96,9 +123,8 @@ public final class ClientMusic {
 				CACHE.remove(eldest);
 			}
 		}
-		PENDING.remove(payload.track());
-		REQUESTED.remove(payload.track());
-		MusicPlayer.onTrackReady(payload.track());
+		REQUESTED.remove(track);
+		MusicPlayer.onTrackReady(track);
 	}
 
 	public static void clear() {

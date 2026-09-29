@@ -50,7 +50,7 @@ public final class DanceGame {
 	private static final int EFFECT_LIMIT = 64;
 	private static final long MILLIS = 1_000_000L;
 	private static final long AUDIO_WAIT_NANOS = 3000L * MILLIS;
-	private static final long LOAD_TIMEOUT_NANOS = 15000L * MILLIS;
+	private static final long LOAD_TIMEOUT_NANOS = 60000L * MILLIS;
 	private static final int PROGRESS_INTERVAL = 10;
 	private static final int END_DELAY = 1000;
 
@@ -125,7 +125,7 @@ public final class DanceGame {
 		this.beatNanos = (long) (Mth.clamp(chart.beatMs(), 350.0F, 800.0F) * MILLIS);
 		if (!chart.audio().isEmpty()) {
 			if (!ClientMusic.has(chart.audio(), audioVersion)) {
-				ClientMusic.request(chart.audio());
+				ClientMusic.request(chart.audio(), audioVersion);
 			}
 		} else if (!chart.tones().isEmpty()) {
 			List<DanceChart.Tone> tones = chart.tones();

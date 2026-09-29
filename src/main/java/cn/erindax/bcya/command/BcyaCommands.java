@@ -52,6 +52,7 @@ public final class BcyaCommands {
 				.requires(source -> source.hasPermission(2)))
 			.then(maskRuleToggle(MASKER_HBL, MaskRulesState.Rule.SWAP_BLACKLIST, "commands.bcya.masker_hbl")
 				.requires(source -> source.hasPermission(2)))
+			.then(MaskOriginCommands.origin())
 			.then(PatrolCommands.build().requires(source -> source.hasPermission(2)))
 			.then(InvestigatorCommands.build().requires(source -> source.hasPermission(2)))
 			.then(Commands.literal(RELOAD)
@@ -93,7 +94,7 @@ public final class BcyaCommands {
 					ResourceLocationArgument.getId(ctx, ARG_MASK))));
 	}
 
-	private static CompletableFuture<Suggestions> suggestMasks(CommandContext<CommandSourceStack> ctx,
+	static CompletableFuture<Suggestions> suggestMasks(CommandContext<CommandSourceStack> ctx,
 			SuggestionsBuilder builder) {
 		return SharedSuggestionProvider.suggestResource(
 			ModItems.MASKS.stream().map(BuiltInRegistries.ITEM::getKey), builder);
@@ -122,7 +123,7 @@ public final class BcyaCommands {
 	}
 
 	@Nullable
-	private static Item resolveMask(ResourceLocation input) {
+	static Item resolveMask(ResourceLocation input) {
 		ResourceLocation id = ResourceLocation.DEFAULT_NAMESPACE.equals(input.getNamespace())
 			? BcyaMod.id(input.getPath())
 			: input;

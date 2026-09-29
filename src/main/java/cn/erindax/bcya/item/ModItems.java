@@ -51,6 +51,11 @@ public final class ModItems {
 			.stacksTo(1)
 			.rarity(Rarity.RARE)));
 
+	public static final Item AGATE = register("agate",
+		new AgateItem(new Item.Properties()
+			.stacksTo(16)
+			.rarity(Rarity.RARE)));
+
 	public static final Item KEY = register("key",
 		new KeyItem(new Item.Properties()
 			.stacksTo(16)));
@@ -85,6 +90,7 @@ public final class ModItems {
 				MASKS.forEach(output::accept);
 				output.accept(MAGIC_WAND);
 				output.accept(CAT_EYE);
+				output.accept(AGATE);
 				output.accept(KEY);
 				output.accept(PASSWORD_LOCK);
 				output.accept(KEY_LOCK);

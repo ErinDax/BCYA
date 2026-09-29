@@ -3,11 +3,14 @@ package cn.erindax.bcya.client.gui;
 import cn.erindax.bcya.item.MaskItem;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.mask.net.MaskRulesPayload;
+import cn.erindax.bcya.voice.VoicePreset;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.client.Minecraft;
@@ -30,17 +33,30 @@ public class MaskRulesScreen extends Screen {
 	private static final int FOOTER_HEIGHT = 40;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int GAP = 4;
-	private static final int ROW_WIDTH = 340;
+	private static final int ROW_WIDTH = 380;
+	private static final int VOICE_WIDTH = 150;
 	private static final int TOGGLE_WIDTH = 90;
+	private static final String OFF = "";
 
 	private final Set<ResourceLocation> voiceDisabled;
 	private final Set<ResourceLocation> swapBlacklist;
+	private final Map<ResourceLocation, String> voice;
+	private final Map<String, String> presetNames = new HashMap<>();
+	private final List<String> voiceOptions = new ArrayList<>();
 	private final List<Row> rows = new ArrayList<>();
 
 	public MaskRulesScreen(MaskRulesPayload data) {
 		super(Component.translatable("screen.bcya.mask_rules.title"));
 		this.voiceDisabled = Set.copyOf(data.voiceDisabled());
 		this.swapBlacklist = Set.copyOf(data.swapBlacklist());
+		this.voice = Map.copyOf(data.voice());
+		for (VoicePreset preset : data.presets()) {
+			if (!presetNames.containsKey(preset.id())) {
+				presetNames.put(preset.id(), preset.name());
+				voiceOptions.add(preset.id());
+			}
+		}
+		voiceOptions.add(OFF);
 	}
 
 	@Override
@@ -69,18 +85,38 @@ public class MaskRulesScreen extends Screen {
 	}
 
 	private void save() {
-		List<ResourceLocation> voice = new ArrayList<>();
+		List<ResourceLocation> disabled = new ArrayList<>();
 		List<ResourceLocation> swap = new ArrayList<>();
+		Map<ResourceLocation, String> assignments = new HashMap<>();
 		for (Row row : rows) {
-			if (!row.voiceButton.getValue()) {
-				voice.add(row.id);
+			String choice = row.voiceButton.getValue();
+			if (choice.equals(OFF)) {
+				disabled.add(row.id);
+			} else {
+				assignments.put(row.id, choice);
 			}
 			if (!row.swapButton.getValue()) {
 				swap.add(row.id);
 			}
 		}
-		ClientPlayNetworking.send(new MaskRulesPayload(voice, swap));
+		ClientPlayNetworking.send(new MaskRulesPayload(disabled, swap, List.of(), assignments));
 		onClose();
+	}
+
+	private String initialVoice(ResourceLocation mask) {
+		if (voiceDisabled.contains(mask)) {
+			return OFF;
+		}
+		String assigned = voice.get(mask);
+		if (assigned != null && presetNames.containsKey(assigned)) {
+			return assigned;
+		}
+		return voiceOptions.get(0);
+	}
+
+	private Component voiceLabel(String option) {
+		return option.equals(OFF) ? Component.translatable("screen.bcya.mask_rules.voice_off")
+			: Component.literal(presetNames.getOrDefault(option, option));
 	}
 
 	@Override
@@ -118,15 +154,17 @@ public class MaskRulesScreen extends Screen {
 
 		private final ResourceLocation id;
 		private final Component label;
-		private final CycleButton<Boolean> voiceButton;
+		private final CycleButton<String> voiceButton;
 		private final CycleButton<Boolean> swapButton;
 		private final List<GuiEventListener> children;
 
 		Row(MaskItem mask) {
 			this.id = BuiltInRegistries.ITEM.getKey(mask);
 			this.label = new ItemStack(mask).getHoverName();
-			voiceButton = CycleButton.onOffBuilder(!voiceDisabled.contains(id))
-				.create(0, 0, TOGGLE_WIDTH, BUTTON_HEIGHT, Component.translatable("screen.bcya.mask_rules.voice"));
+			voiceButton = CycleButton.builder(MaskRulesScreen.this::voiceLabel)
+				.withValues(voiceOptions)
+				.withInitialValue(initialVoice(id))
+				.create(0, 0, VOICE_WIDTH, BUTTON_HEIGHT, Component.translatable("screen.bcya.mask_rules.voice"));
 			swapButton = CycleButton.onOffBuilder(!swapBlacklist.contains(id))
 				.create(0, 0, TOGGLE_WIDTH, BUTTON_HEIGHT, Component.translatable("screen.bcya.mask_rules.swap"));
 			children = List.of(voiceButton, swapButton);
@@ -138,7 +176,7 @@ public class MaskRulesScreen extends Screen {
 			int buttonY = top + (rowHeight - BUTTON_HEIGHT) / 2;
 			int right = left + rowWidth;
 			swapButton.setPosition(right - TOGGLE_WIDTH, buttonY);
-			voiceButton.setPosition(right - TOGGLE_WIDTH - GAP - TOGGLE_WIDTH, buttonY);
+			voiceButton.setPosition(right - TOGGLE_WIDTH - GAP - VOICE_WIDTH, buttonY);
 			voiceButton.render(graphics, mouseX, mouseY, partialTick);
 			swapButton.render(graphics, mouseX, mouseY, partialTick);
 			graphics.drawString(font, label, left + 4, top + (rowHeight - 8) / 2, 0xFFFFFF);

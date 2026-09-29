@@ -16,6 +16,7 @@ import cn.erindax.bcya.client.gui.LockOwnerScreen;
 import cn.erindax.bcya.client.gui.LockPasswordScreen;
 import cn.erindax.bcya.client.gui.MaskRulesScreen;
 import cn.erindax.bcya.client.gui.MaskSkinScreen;
+import cn.erindax.bcya.client.gui.VoicePresetScreen;
 import cn.erindax.bcya.client.gui.MusicNoteScreen;
 import cn.erindax.bcya.client.gui.PatrollerListScreen;
 import cn.erindax.bcya.client.gui.PatrollerSettingsScreen;
@@ -38,6 +39,7 @@ import cn.erindax.bcya.client.skywalk.SkywalkClient;
 import cn.erindax.bcya.entity.ModEntities;
 import cn.erindax.bcya.entity.net.PatrollerListPayload;
 import cn.erindax.bcya.entity.net.PatrollerSettingsPayload;
+import cn.erindax.bcya.item.CatEyeItem;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.lock.LockMode;
 import cn.erindax.bcya.lock.LockType;
@@ -55,12 +57,14 @@ import cn.erindax.bcya.music.net.MusicControlPayload;
 import cn.erindax.bcya.music.net.MusicDataPayload;
 import cn.erindax.bcya.music.net.MusicMenuPayload;
 import cn.erindax.bcya.skin.TexturePayload;
-import cn.erindax.bcya.util.MaskUtil;
 import cn.erindax.bcya.voice.MaskVoiceClientState;
 import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
+import cn.erindax.bcya.voice.MaskWearersPayload;
+import cn.erindax.bcya.voice.VoicePresetsPayload;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
@@ -94,14 +98,19 @@ public class BcyaModClient implements ClientModInitializer {
 			}
 		});
 
-		MaskVoiceClientState.setLocalWornMaskSupplier(() -> MaskUtil.getWornMask(Minecraft.getInstance().player));
+		ClientTickEvents.END_CLIENT_TICK.register(client ->
+			MaskVoiceClientState.setHearOriginal(CatEyeItem.isActive(client.player)));
 		MaskSlots.setClientCreativeSync(player -> {
 			if (player instanceof LocalPlayer localPlayer) {
 				MaskSlotWidget.sendCreative(localPlayer);
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(MaskVoiceSyncPayload.TYPE, (payload, context) ->
-			MaskVoiceClientState.setDisabledMasks(payload.disabledMasks()));
+			MaskVoiceClientState.apply(payload));
+		ClientPlayNetworking.registerGlobalReceiver(MaskWearersPayload.TYPE, (payload, context) ->
+			MaskVoiceClientState.setWearers(payload.wearers()));
+		ClientPlayNetworking.registerGlobalReceiver(VoicePresetsPayload.TYPE, (payload, context) ->
+			context.client().setScreen(new VoicePresetScreen(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(TexturePayload.TYPE, (payload, context) ->
 			RemoteTextures.put(payload.kind(), payload.name(), payload.png()));
 		ClientPlayNetworking.registerGlobalReceiver(PatrollerSettingsPayload.TYPE, (payload, context) ->

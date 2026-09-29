@@ -2,6 +2,7 @@ package cn.erindax.bcya.mask;
 
 import cn.erindax.bcya.mask.net.MaskSkinSyncPayload;
 import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
+import cn.erindax.bcya.voice.VoicePreset;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,11 +38,17 @@ public class MaskRulesState extends SavedData {
 		}
 	}
 
+	public static final int MAX_PRESETS = 24;
+
 	private static final String DATA_NAME = "bcya_mask_rules";
 	private static final String TAG_SKINS = "MaskSkins";
 	private static final String TAG_MASK = "Mask";
 	private static final String TAG_SKIN = "Skin";
 	private static final String TAG_SLIM = "Slim";
+	private static final String TAG_PRESETS = "VoicePresets";
+	private static final String TAG_PRESETS_READY = "VoicePresetsReady";
+	private static final String TAG_ASSIGNMENTS = "VoiceAssignments";
+	private static final String TAG_PRESET = "Preset";
 
 	private static final SavedData.Factory<MaskRulesState> FACTORY =
 		new SavedData.Factory<>(MaskRulesState::new, MaskRulesState::load, null);
@@ -49,9 +56,18 @@ public class MaskRulesState extends SavedData {
 	private final Set<ResourceLocation> voiceDisabled = new HashSet<>();
 	private final Set<ResourceLocation> swapBlacklist = new HashSet<>();
 	private final Map<ResourceLocation, MaskSkinOverride> skinOverrides = new LinkedHashMap<>();
+	private final List<VoicePreset> voicePresets = new ArrayList<>();
+	private final Map<ResourceLocation, String> voiceAssignments = new LinkedHashMap<>();
+	private boolean voicePresetsReady;
 
 	public static MaskRulesState get(MinecraftServer server) {
-		return server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+		MaskRulesState state = server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+		if (!state.voicePresetsReady) {
+			state.voicePresetsReady = true;
+			state.voicePresets.add(VoicePreset.squeaky());
+			state.setDirty();
+		}
+		return state;
 	}
 
 	private static MaskRulesState load(CompoundTag tag, HolderLookup.Provider registries) {
@@ -75,6 +91,23 @@ public class MaskRulesState extends SavedData {
 				state.skinOverrides.put(mask, new MaskSkinOverride(mask, skin, entry.getBoolean(TAG_SLIM)));
 			}
 		}
+		ListTag presets = tag.getList(TAG_PRESETS, Tag.TAG_COMPOUND);
+		for (int i = 0; i < presets.size() && state.voicePresets.size() < MAX_PRESETS; i++) {
+			VoicePreset preset = VoicePreset.load(presets.getCompound(i));
+			if (state.findPreset(preset.id()) == null) {
+				state.voicePresets.add(preset);
+			}
+		}
+		state.voicePresetsReady = tag.getBoolean(TAG_PRESETS_READY);
+		ListTag assignments = tag.getList(TAG_ASSIGNMENTS, Tag.TAG_COMPOUND);
+		for (int i = 0; i < assignments.size(); i++) {
+			CompoundTag entry = assignments.getCompound(i);
+			ResourceLocation mask = ResourceLocation.tryParse(entry.getString(TAG_MASK));
+			String preset = entry.getString(TAG_PRESET);
+			if (mask != null && state.findPreset(preset) != null) {
+				state.voiceAssignments.put(mask, preset);
+			}
+		}
 		return state;
 	}
 
@@ -96,7 +129,60 @@ public class MaskRulesState extends SavedData {
 			skins.add(entry);
 		}
 		tag.put(TAG_SKINS, skins);
+		ListTag presets = new ListTag();
+		for (VoicePreset preset : voicePresets) {
+			presets.add(preset.save());
+		}
+		tag.put(TAG_PRESETS, presets);
+		tag.putBoolean(TAG_PRESETS_READY, voicePresetsReady);
+		ListTag assignments = new ListTag();
+		for (Map.Entry<ResourceLocation, String> entry : voiceAssignments.entrySet()) {
+			CompoundTag item = new CompoundTag();
+			item.putString(TAG_MASK, entry.getKey().toString());
+			item.putString(TAG_PRESET, entry.getValue());
+			assignments.add(item);
+		}
+		tag.put(TAG_ASSIGNMENTS, assignments);
 		return tag;
+	}
+
+	public List<VoicePreset> getVoicePresets() {
+		return List.copyOf(voicePresets);
+	}
+
+	public void setVoicePresets(List<VoicePreset> presets) {
+		voicePresets.clear();
+		for (VoicePreset preset : presets) {
+			if (voicePresets.size() < MAX_PRESETS && findPreset(preset.id()) == null) {
+				voicePresets.add(preset);
+			}
+		}
+		voiceAssignments.values().removeIf(id -> findPreset(id) == null);
+		setDirty();
+	}
+
+	public Map<ResourceLocation, String> getVoiceAssignments() {
+		return Map.copyOf(voiceAssignments);
+	}
+
+	public void setVoiceAssignments(Map<ResourceLocation, String> assignments) {
+		voiceAssignments.clear();
+		for (Map.Entry<ResourceLocation, String> entry : assignments.entrySet()) {
+			if (findPreset(entry.getValue()) != null) {
+				voiceAssignments.put(entry.getKey(), entry.getValue());
+			}
+		}
+		setDirty();
+	}
+
+	@Nullable
+	private VoicePreset findPreset(String id) {
+		for (VoicePreset preset : voicePresets) {
+			if (preset.id().equals(id)) {
+				return preset;
+			}
+		}
+		return null;
 	}
 
 	public boolean has(Rule rule, ResourceLocation maskId) {
@@ -147,7 +233,8 @@ public class MaskRulesState extends SavedData {
 	}
 
 	public MaskVoiceSyncPayload toVoicePayload() {
-		return new MaskVoiceSyncPayload(new TreeSet<>(voiceDisabled).stream().toList());
+		return new MaskVoiceSyncPayload(new TreeSet<>(voiceDisabled).stream().toList(), getVoicePresets(),
+			getVoiceAssignments());
 	}
 
 	public MaskSkinSyncPayload toSkinPayload() {

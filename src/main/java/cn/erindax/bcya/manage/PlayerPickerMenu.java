@@ -39,6 +39,7 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 	private static final int PREV_SLOT = SIZE - 8;
 	private static final int NEXT_SLOT = SIZE - 7;
 	private static final int MASK_RULES_SLOT = SIZE - 4;
+	private static final int VOICE_SLOT = SIZE - 5;
 	private static final int PATROL_SLOT = SIZE - 3;
 	private static final int MASK_SKIN_SLOT = SIZE - 2;
 	private static final int SWAP_SLOT = SIZE - 1;
@@ -130,6 +131,8 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 			container.setItem(NEXT_SLOT, ManagerItems.button(Items.SPECTRAL_ARROW,
 				Component.translatable("screen.bcya.players.next"), pageLabel));
 		}
+		container.setItem(VOICE_SLOT, ManagerItems.button(Items.NOTE_BLOCK,
+			"screen.bcya.players.voice_presets", "screen.bcya.players.voice_presets_lore"));
 		container.setItem(MASK_RULES_SLOT, ManagerItems.button(Items.WRITABLE_BOOK,
 			"screen.bcya.players.mask_rules", "screen.bcya.players.mask_rules_lore"));
 		container.setItem(PATROL_SLOT, ManagerItems.button(Items.ARMOR_STAND,
@@ -221,6 +224,11 @@ public class PlayerPickerMenu extends AbstractContainerMenu {
 		if (slotId == MASK_RULES_SLOT) {
 			viewer.closeContainer();
 			MaskRulesHandler.openEditor(viewer);
+			return;
+		}
+		if (slotId == VOICE_SLOT) {
+			viewer.closeContainer();
+			MaskRulesHandler.openPresets(viewer);
 			return;
 		}
 		if (slotId < players.size()) {

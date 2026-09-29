@@ -25,6 +25,7 @@ import cn.erindax.bcya.music.MusicHandler;
 import cn.erindax.bcya.skin.TexturePayload;
 import cn.erindax.bcya.skin.TextureStore;
 import cn.erindax.bcya.skywalk.Skywalk;
+import cn.erindax.bcya.voice.MaskVoiceSync;
 import cn.erindax.bcya.voice.MaskVoiceSyncPayload;
 
 import net.fabricmc.api.ModInitializer;
@@ -56,6 +57,7 @@ public class BcyaMod implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(TexturePayload.TYPE, TexturePayload.STREAM_CODEC);
 		MaskSkinHandler.init();
 		MaskRulesHandler.init();
+		MaskVoiceSync.init();
 		MaskSlotHandler.init();
 		PatrollerSettingsHandler.init();
 		PatrolRecorder.init();

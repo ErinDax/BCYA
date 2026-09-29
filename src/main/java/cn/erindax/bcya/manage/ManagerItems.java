@@ -1,5 +1,6 @@
 package cn.erindax.bcya.manage;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.ChatFormatting;
@@ -25,20 +26,27 @@ public final class ManagerItems {
 	}
 
 	public static ItemStack button(ItemLike icon, String nameKey, String loreKey) {
+		return button(icon, Component.translatable(nameKey), Component.translatable(loreKey));
+	}
+
+	public static ItemStack button(ItemLike icon, Component name, Component lore) {
 		ItemStack stack = new ItemStack(icon);
-		stack.set(DataComponents.CUSTOM_NAME, plain(Component.translatable(nameKey).withStyle(ChatFormatting.YELLOW)));
-		stack.set(DataComponents.LORE, new ItemLore(List.of(
-			plain(Component.translatable(loreKey).withStyle(ChatFormatting.GRAY)))));
+		stack.set(DataComponents.CUSTOM_NAME, plain(name.copy().withStyle(ChatFormatting.YELLOW)));
+		stack.set(DataComponents.LORE, new ItemLore(List.of(plain(lore.copy().withStyle(ChatFormatting.GRAY)))));
 		return stack;
 	}
 
-	public static ItemStack head(ServerPlayer player) {
+	public static ItemStack head(ServerPlayer player, String group) {
 		ItemStack stack = new ItemStack(Items.PLAYER_HEAD);
 		stack.set(DataComponents.PROFILE, new ResolvableProfile(player.getGameProfile()));
 		stack.set(DataComponents.CUSTOM_NAME, plain(Component.literal(player.getGameProfile().getName())
 			.withStyle(ChatFormatting.AQUA)));
-		stack.set(DataComponents.LORE, new ItemLore(List.of(
-			plain(Component.translatable("screen.bcya.players.open_inventory").withStyle(ChatFormatting.GRAY)))));
+		List<Component> lore = new ArrayList<>();
+		if (!group.isEmpty()) {
+			lore.add(plain(Component.translatable("screen.bcya.players.group", group).withStyle(ChatFormatting.GRAY)));
+		}
+		lore.add(plain(Component.translatable("screen.bcya.players.open_inventory").withStyle(ChatFormatting.GRAY)));
+		stack.set(DataComponents.LORE, new ItemLore(lore));
 		return stack;
 	}
 

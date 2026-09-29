@@ -120,7 +120,7 @@ public class PlayerInventoryMenu extends AbstractContainerMenu {
 
 	@Override
 	public boolean stillValid(Player player) {
-		if (!WandWhitelist.isAllowed(player)) {
+		if (!WandWhitelist.isAllowed(player) || WandRosterState.get(server).isHidden(targetId)) {
 			return false;
 		}
 		ServerPlayer target = server.getPlayerList().getPlayer(targetId);

@@ -53,6 +53,7 @@ public final class BcyaCommands {
 			.then(maskRuleToggle(MASKER_HBL, MaskRulesState.Rule.SWAP_BLACKLIST, "commands.bcya.masker_hbl")
 				.requires(source -> source.hasPermission(2)))
 			.then(MaskOriginCommands.origin())
+			.then(WandCommands.wand())
 			.then(PatrolCommands.build().requires(source -> source.hasPermission(2)))
 			.then(InvestigatorCommands.build().requires(source -> source.hasPermission(2)))
 			.then(Commands.literal(RELOAD)

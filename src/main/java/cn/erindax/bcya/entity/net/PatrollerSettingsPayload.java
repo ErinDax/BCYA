@@ -11,7 +11,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 public record PatrollerSettingsPayload(int entityId, String name, String skin, boolean slim, int pauseSeconds,
 		int detectDiameter, int stareSeconds, boolean nameVisible, boolean showHeldItems, boolean patrolling,
-		boolean aggressive, int waypointCount, List<String> skins, boolean fromList) implements CustomPacketPayload {
+		boolean aggressive, int waypointCount, List<String> skins, boolean fromList, String dimension, int x, int y,
+		int z) implements CustomPacketPayload {
 
 	public static final CustomPacketPayload.Type<PatrollerSettingsPayload> TYPE =
 		new CustomPacketPayload.Type<>(BcyaMod.id("patroller_settings"));
@@ -22,7 +23,8 @@ public record PatrollerSettingsPayload(int entityId, String name, String skin, b
 	private PatrollerSettingsPayload(RegistryFriendlyByteBuf buf) {
 		this(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readVarInt(), buf.readVarInt(),
 			buf.readVarInt(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
-			buf.readVarInt(), buf.readList(FriendlyByteBuf::readUtf), buf.readBoolean());
+			buf.readVarInt(), buf.readList(FriendlyByteBuf::readUtf), buf.readBoolean(), buf.readUtf(),
+			buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
 	}
 
 	private void write(RegistryFriendlyByteBuf buf) {
@@ -40,6 +42,10 @@ public record PatrollerSettingsPayload(int entityId, String name, String skin, b
 		buf.writeVarInt(waypointCount);
 		buf.writeCollection(skins, FriendlyByteBuf::writeUtf);
 		buf.writeBoolean(fromList);
+		buf.writeUtf(dimension);
+		buf.writeVarInt(x);
+		buf.writeVarInt(y);
+		buf.writeVarInt(z);
 	}
 
 	@Override

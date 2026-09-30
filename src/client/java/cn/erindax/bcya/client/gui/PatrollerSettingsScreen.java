@@ -1,47 +1,96 @@
 package cn.erindax.bcya.client.gui;
 
+import cn.erindax.bcya.client.render.RemoteTextures;
 import cn.erindax.bcya.entity.net.PatrollerListActionPayload;
 import cn.erindax.bcya.entity.net.PatrollerSettingsPayload;
 import cn.erindax.bcya.entity.net.PatrollerUpdatePayload;
+
+import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+
+import org.jetbrains.annotations.Nullable;
 
 public class PatrollerSettingsScreen extends Screen {
 
-	private record Label(Component text, int x, int y) {
+	private record Label(Component text, int x, int y, int color) {
 	}
 
-	private static final int FIELD_WIDTH = 200;
-	private static final int FIELD_HEIGHT = 20;
+	private static final int ROW = 20;
 	private static final int GAP = 4;
-	private static final int LABEL_HEIGHT = 10;
-	private static final int HEADER_HEIGHT = 26;
-	private static final int LABEL_COLOR = 0xA0A0A0;
+	private static final int PAD = 8;
+	private static final int SECTION = 13;
+	private static final int PANEL_MAX = 470;
+	private static final int PREVIEW_MAX = 140;
+	private static final int ARMS_WIDTH = 72;
+	private static final int HEADER = 32;
+	private static final int TITLE_COLOR = 0xFFFFFF;
+	private static final int LABEL_COLOR = 0xA0A0A8;
+	private static final int SECTION_COLOR = 0xE6C35C;
+	private static final int HINT_COLOR = 0x70707C;
+	private static final int PANEL_FILL = 0xD0181820;
+	private static final int PANEL_BORDER = 0x60FFFFFF;
+	private static final int PREVIEW_FILL = 0xFF0E0E14;
+	private static final int PREVIEW_BORDER = 0x40FFFFFF;
+	private static final long CONFIRM_MS = 3000L;
+	private static final float DEFAULT_YAW = 25.0F;
+	private static final float DRAG_SPEED = 2.5F;
 
 	private final PatrollerSettingsPayload data;
 	private final List<Label> labels = new ArrayList<>();
 
+	@Nullable
+	private PlayerModel<LivingEntity> wideModel;
+	@Nullable
+	private PlayerModel<LivingEntity> slimModel;
 	private EditBox nameBox;
 	private CycleButton<String> skinButton;
 	private CycleButton<Boolean> slimButton;
-	private EditBox pauseBox;
-	private EditBox detectBox;
-	private EditBox stareBox;
 	private CycleButton<Boolean> nameTagButton;
 	private CycleButton<Boolean> heldItemsButton;
 	private CycleButton<Boolean> patrollingButton;
 	private CycleButton<Boolean> aggressiveButton;
+	private EditBox pauseBox;
+	private EditBox detectBox;
+	private EditBox stareBox;
+	private Button removeButton;
+	private Button backButton;
+	private int left;
 	private int top;
+	private int panelWidth;
+	private int panelHeight;
+	private int previewX0;
+	private int previewY0;
+	private int previewX1;
+	private int previewY1;
+	private int dividerY;
+	private float yaw = DEFAULT_YAW;
+	private boolean draggingPreview;
+	private long removeConfirmUntil;
+	private long backConfirmUntil;
 
 	public PatrollerSettingsScreen(PatrollerSettingsPayload data) {
 		super(Component.translatable("screen.bcya.patroller.title"));
@@ -50,26 +99,33 @@ public class PatrollerSettingsScreen extends Screen {
 
 	@Override
 	protected void init() {
+		PatrollerUpdatePayload kept = nameBox == null ? null : collect(false);
 		labels.clear();
-		int contentHeight = HEADER_HEIGHT
-			+ (LABEL_HEIGHT + FIELD_HEIGHT + GAP)
-			+ (FIELD_HEIGHT + GAP) * 2
-			+ (LABEL_HEIGHT + FIELD_HEIGHT + GAP)
-			+ (FIELD_HEIGHT + GAP) * 2
-			+ GAP
-			+ (FIELD_HEIGHT + GAP) * 2;
-		top = Math.max(8, (height - contentHeight) / 2);
-		int x = (width - FIELD_WIDTH) / 2;
-		int half = (FIELD_WIDTH - GAP) / 2;
-		int y = top + HEADER_HEIGHT;
+		panelWidth = Math.min(PANEL_MAX, width - 16);
+		int previewWidth = Math.min(PREVIEW_MAX, panelWidth / 3);
+		int body = SECTION * 2 + (ROW + GAP) * 5;
+		panelHeight = HEADER + body + GAP + 1 + GAP + ROW + PAD;
+		left = (width - panelWidth) / 2;
+		top = Math.max(4, (height - panelHeight) / 2);
 
-		labels.add(new Label(Component.translatable("screen.bcya.patroller.name"), x, y));
-		y += LABEL_HEIGHT;
-		nameBox = new EditBox(font, x, y, FIELD_WIDTH, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.name"));
+		previewX0 = left + PAD;
+		previewX1 = previewX0 + previewWidth;
+		int x = previewX1 + PAD;
+		int rightWidth = left + panelWidth - PAD - x;
+		int half = (rightWidth - GAP) / 2;
+		int y = top + HEADER;
+		int bodyBottom = y + body;
+
+		labels.add(new Label(Component.translatable("screen.bcya.patroller.section_look"), x, y + 2, SECTION_COLOR));
+		y += SECTION;
+		Component nameLabel = Component.translatable("screen.bcya.patroller.name");
+		int nameLabelWidth = font.width(nameLabel) + 6;
+		labels.add(new Label(nameLabel, x, y + 6, LABEL_COLOR));
+		nameBox = new EditBox(font, x + nameLabelWidth, y, rightWidth - nameLabelWidth, ROW, nameLabel);
 		nameBox.setMaxLength(32);
-		nameBox.setValue(data.name());
+		nameBox.setValue(kept == null ? data.name() : kept.name());
 		addRenderableWidget(nameBox);
-		y += FIELD_HEIGHT + GAP;
+		y += ROW + GAP;
 
 		List<String> skins = new ArrayList<>();
 		skins.add("");
@@ -80,77 +136,202 @@ public class PatrollerSettingsScreen extends Screen {
 		skinButton = addRenderableWidget(CycleButton.<String>builder(s ->
 				s.isEmpty() ? Component.translatable("screen.bcya.patroller.skin_none") : Component.literal(s))
 			.withValues(skins)
-			.withInitialValue(data.skin())
-			.create(x, y, FIELD_WIDTH, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.skin"), (b, v) -> {}));
-		y += FIELD_HEIGHT + GAP;
-
+			.withInitialValue(kept == null ? data.skin() : kept.skin())
+			.create(x, y, rightWidth - ARMS_WIDTH - GAP, ROW, Component.translatable("screen.bcya.patroller.skin"),
+				(b, v) -> {}));
 		slimButton = addRenderableWidget(CycleButton.<Boolean>builder(slim -> Component.translatable(
 				slim ? "screen.bcya.patroller.arms_slim" : "screen.bcya.patroller.arms_wide"))
 			.withValues(List.of(false, true))
-			.withInitialValue(data.slim())
-			.create(x, y, FIELD_WIDTH, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.arms"), (b, v) -> {}));
-		y += FIELD_HEIGHT + GAP;
+			.withInitialValue(kept == null ? data.slim() : kept.slim())
+			.displayOnlyValue()
+			.create(x + rightWidth - ARMS_WIDTH, y, ARMS_WIDTH, ROW, Component.translatable("screen.bcya.patroller.arms"),
+				(b, v) -> {}));
+		y += ROW + GAP;
 
-		int third = (FIELD_WIDTH - GAP * 2) / 3;
-		labels.add(new Label(Component.translatable("screen.bcya.patroller.pause"), x, y));
-		labels.add(new Label(Component.translatable("screen.bcya.patroller.detect"), x + third + GAP, y));
-		labels.add(new Label(Component.translatable("screen.bcya.patroller.stare"), x + (third + GAP) * 2, y));
-		y += LABEL_HEIGHT;
-		pauseBox = numberBox(x, y, third, data.pauseSeconds(), "screen.bcya.patroller.pause");
-		detectBox = numberBox(x + third + GAP, y, third, data.detectDiameter(), "screen.bcya.patroller.detect");
-		stareBox = numberBox(x + (third + GAP) * 2, y, third, data.stareSeconds(), "screen.bcya.patroller.stare");
-		y += FIELD_HEIGHT + GAP;
-
-		nameTagButton = addRenderableWidget(CycleButton.onOffBuilder(data.nameVisible())
-			.create(x, y, FIELD_WIDTH, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.nametag"), (b, v) -> {}));
-		y += FIELD_HEIGHT + GAP;
-
+		nameTagButton = addRenderableWidget(CycleButton.<Boolean>builder(show -> Component.translatable(
+				show ? "screen.bcya.patroller.held_shown" : "screen.bcya.patroller.held_hidden"))
+			.withValues(List.of(true, false))
+			.withInitialValue(kept == null ? data.nameVisible() : kept.nameVisible())
+			.create(x, y, half, ROW, Component.translatable("screen.bcya.patroller.nametag"), (b, v) -> {}));
 		heldItemsButton = addRenderableWidget(CycleButton.<Boolean>builder(show -> Component.translatable(
 				show ? "screen.bcya.patroller.held_shown" : "screen.bcya.patroller.held_hidden"))
 			.withValues(List.of(true, false))
-			.withInitialValue(data.showHeldItems())
-			.create(x, y, third, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.held"), (b, v) -> {}));
+			.withInitialValue(kept == null ? data.showHeldItems() : kept.showHeldItems())
+			.create(x + half + GAP, y, half, ROW, Component.translatable("screen.bcya.patroller.held"), (b, v) -> {}));
+		y += ROW + GAP;
+
+		labels.add(new Label(Component.translatable("screen.bcya.patroller.section_behavior"), x, y + 2,
+			SECTION_COLOR));
+		y += SECTION;
 		patrollingButton = addRenderableWidget(CycleButton.<Boolean>builder(on -> Component.translatable(
 				on ? "screen.bcya.patroller.patrol_on" : "screen.bcya.patroller.patrol_off"))
 			.withValues(List.of(true, false))
-			.withInitialValue(data.patrolling())
-			.create(x + third + GAP, y, third, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.patrol"), (b, v) -> {}));
-		aggressiveButton = addRenderableWidget(CycleButton.onOffBuilder(data.aggressive())
-			.create(x + (third + GAP) * 2, y, third, FIELD_HEIGHT, Component.translatable("screen.bcya.patroller.aggressive"), (b, v) -> {}));
-		y += FIELD_HEIGHT + GAP + GAP;
+			.withInitialValue(kept == null ? data.patrolling() : kept.patrolling())
+			.create(x, y, half, ROW, Component.translatable("screen.bcya.patroller.patrol"), (b, v) -> {}));
+		aggressiveButton = addRenderableWidget(CycleButton.onOffBuilder(kept == null ? data.aggressive() : kept.aggressive())
+			.create(x + half + GAP, y, half, ROW, Component.translatable("screen.bcya.patroller.aggressive"),
+				(b, v) -> {}));
+		y += ROW + GAP;
 
+		int third = (rightWidth - GAP * 2) / 3;
+		pauseBox = numberBox(x, y, third, kept == null ? data.pauseSeconds() : kept.pauseSeconds(), "pause",
+			"screen.bcya.patroller.unit_seconds");
+		detectBox = numberBox(x + third + GAP, y, third, kept == null ? data.detectDiameter() : kept.detectDiameter(),
+			"detect", "screen.bcya.patroller.unit_blocks");
+		stareBox = numberBox(x + (third + GAP) * 2, y, third, kept == null ? data.stareSeconds() : kept.stareSeconds(),
+			"stare", "screen.bcya.patroller.unit_seconds");
+
+		int recordY = bodyBottom - ROW - GAP;
 		addRenderableWidget(Button.builder(Component.translatable("screen.bcya.patroller.record"), b -> record())
-			.bounds(x, y, half, FIELD_HEIGHT).build());
-		addRenderableWidget(Button.builder(Component.translatable("screen.bcya.patroller.remove"), b -> remove())
-			.bounds(x + half + GAP, y, half, FIELD_HEIGHT).build());
-		y += FIELD_HEIGHT + GAP;
+			.bounds(previewX0, recordY, previewWidth, ROW)
+			.tooltip(Tooltip.create(Component.translatable("screen.bcya.patroller.record_tip")))
+			.build());
+		labels.add(new Label(Component.translatable("screen.bcya.patroller.route", data.waypointCount()), previewX0,
+			recordY - 11, LABEL_COLOR));
+		previewY0 = top + HEADER;
+		previewY1 = recordY - 15;
 
-		addRenderableWidget(Button.builder(Component.translatable("screen.bcya.patroller.save"), b -> save())
-			.bounds(x, y, half, FIELD_HEIGHT).build());
-		addRenderableWidget(Button.builder(Component.translatable(data.fromList() ? "gui.back" : "gui.cancel"), b -> cancel())
-			.bounds(x + half + GAP, y, half, FIELD_HEIGHT).build());
+		dividerY = bodyBottom + GAP;
+		int footerY = dividerY + 1 + GAP;
+		int buttonWidth = Math.min(90, (panelWidth - PAD * 2 - GAP * 2) / 3);
+		removeButton = addRenderableWidget(Button.builder(Component.translatable("screen.bcya.patroller.remove_long"),
+				b -> remove())
+			.bounds(left + PAD, footerY, buttonWidth, ROW).build());
+		int rightEdge = left + panelWidth - PAD;
+		backButton = addRenderableWidget(Button.builder(backLabel(), b -> back())
+			.bounds(rightEdge - buttonWidth, footerY, buttonWidth, ROW).build());
+		addRenderableWidget(Button.builder(Component.translatable("screen.bcya.patroller.save")
+				.withStyle(ChatFormatting.GREEN), b -> save())
+			.bounds(rightEdge - buttonWidth * 2 - GAP, footerY, buttonWidth, ROW).build());
 
 		setInitialFocus(nameBox);
 	}
 
-	private EditBox numberBox(int x, int y, int width, int value, String key) {
-		EditBox box = new EditBox(font, x, y, width, FIELD_HEIGHT, Component.translatable(key));
+	private EditBox numberBox(int x, int y, int width, int value, String key, String unitKey) {
+		Component label = Component.translatable("screen.bcya.patroller." + key + "_short");
+		Component unit = Component.translatable(unitKey);
+		int labelWidth = font.width(label) + 3;
+		int unitWidth = font.width(unit) + 3;
+		labels.add(new Label(label, x, y + 6, LABEL_COLOR));
+		labels.add(new Label(unit, x + width - unitWidth + 3, y + 6, LABEL_COLOR));
+		EditBox box = new EditBox(font, x + labelWidth, y, Math.max(20, width - labelWidth - unitWidth), ROW, label);
 		box.setMaxLength(4);
 		box.setFilter(s -> s.isEmpty() || s.chars().allMatch(Character::isDigit));
 		box.setValue(Integer.toString(value));
+		box.setTooltip(Tooltip.create(Component.translatable("screen.bcya.patroller." + key + "_tip")));
 		addRenderableWidget(box);
 		return box;
 	}
 
 	@Override
+	public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+		super.renderBackground(graphics, mouseX, mouseY, partialTick);
+		graphics.fill(left, top, left + panelWidth, top + panelHeight, PANEL_FILL);
+		graphics.renderOutline(left, top, panelWidth, panelHeight, PANEL_BORDER);
+		graphics.fill(previewX0, previewY0, previewX1, previewY1, PREVIEW_FILL);
+		graphics.renderOutline(previewX0, previewY0, previewX1 - previewX0, previewY1 - previewY0, PREVIEW_BORDER);
+		graphics.fill(left + PAD, dividerY, left + panelWidth - PAD, dividerY + 1, PREVIEW_BORDER);
+	}
+
+	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+		refreshConfirmLabels();
 		super.render(graphics, mouseX, mouseY, partialTick);
-		graphics.drawCenteredString(font, title, width / 2, top, 0xFFFFFF);
-		graphics.drawCenteredString(font, Component.translatable("screen.bcya.patroller.waypoints", data.waypointCount()),
-			width / 2, top + 12, LABEL_COLOR);
+		String shownName = nameBox.getValue().isBlank() ? data.name() : nameBox.getValue().strip();
+		graphics.drawString(font, Component.literal(shownName), left + PAD, top + 8, TITLE_COLOR);
+		Component location = Component.translatable("screen.bcya.patroller.location",
+			PatrollerListScreen.dimensionName(data.dimension()), data.x(), data.y(), data.z());
+		graphics.drawString(font, location, left + PAD, top + 19, LABEL_COLOR);
 		for (Label label : labels) {
-			graphics.drawString(font, label.text(), label.x(), label.y(), LABEL_COLOR);
+			graphics.drawString(font, label.text(), label.x(), label.y(), label.color());
 		}
+		drawPreview(graphics);
+		graphics.drawCenteredString(font, Component.translatable("screen.bcya.patroller.preview_hint"),
+			(previewX0 + previewX1) / 2, previewY1 - 11, HINT_COLOR);
+	}
+
+	private void drawPreview(GuiGraphics graphics) {
+		int boxHeight = previewY1 - previewY0;
+		if (boxHeight < 40) {
+			return;
+		}
+		PlayerModel<LivingEntity> model = model(slimButton.getValue());
+		ResourceLocation texture = RemoteTextures.skin(skinButton.getValue());
+		float scale = (boxHeight - 26) / 2.1F;
+		float centerX = (previewX0 + previewX1) / 2.0F;
+		float feet = previewY1 - 16;
+		graphics.enableScissor(previewX0 + 1, previewY0 + 1, previewX1 - 1, previewY1 - 1);
+		PoseStack pose = graphics.pose();
+		pose.pushPose();
+		pose.translate(centerX, feet - 1.5F * scale, 100.0F);
+		pose.scale(scale, scale, -scale);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		Lighting.setupForEntityInInventory();
+		VertexConsumer consumer = graphics.bufferSource().getBuffer(model.renderType(texture));
+		model.renderToBuffer(pose, consumer, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+		graphics.flush();
+		Lighting.setupFor3DItems();
+		pose.popPose();
+		graphics.disableScissor();
+	}
+
+	private PlayerModel<LivingEntity> model(boolean slim) {
+		Minecraft minecraft = Minecraft.getInstance();
+		if (slim) {
+			if (slimModel == null) {
+				slimModel = new PlayerModel<>(minecraft.getEntityModels().bakeLayer(ModelLayers.PLAYER_SLIM), true);
+			}
+			return slimModel;
+		}
+		if (wideModel == null) {
+			wideModel = new PlayerModel<>(minecraft.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);
+		}
+		return wideModel;
+	}
+
+	private boolean inPreview(double mouseX, double mouseY) {
+		return mouseX >= previewX0 && mouseX < previewX1 && mouseY >= previewY0 && mouseY < previewY1;
+	}
+
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (super.mouseClicked(mouseX, mouseY, button)) {
+			return true;
+		}
+		if (button == 0 && inPreview(mouseX, mouseY)) {
+			draggingPreview = true;
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		if (draggingPreview) {
+			yaw += (float) dragX * DRAG_SPEED;
+			return true;
+		}
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+	}
+
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		draggingPreview = false;
+		return super.mouseReleased(mouseX, mouseY, button);
+	}
+
+	private void refreshConfirmLabels() {
+		long now = Util.getMillis();
+		removeButton.setMessage(now < removeConfirmUntil
+			? Component.translatable("screen.bcya.patroller.confirm_remove").withStyle(ChatFormatting.RED)
+			: Component.translatable("screen.bcya.patroller.remove_long"));
+		backButton.setMessage(now < backConfirmUntil
+			? Component.translatable("screen.bcya.patroller.discard").withStyle(ChatFormatting.YELLOW)
+			: backLabel());
+	}
+
+	private Component backLabel() {
+		return Component.translatable(data.fromList() ? "gui.back" : "gui.cancel");
 	}
 
 	private PatrollerUpdatePayload collect(boolean returnToList) {
@@ -159,6 +340,13 @@ public class PatrollerSettingsScreen extends Screen {
 			parse(detectBox, data.detectDiameter()), parse(stareBox, data.stareSeconds()),
 			nameTagButton.getValue(), heldItemsButton.getValue(), patrollingButton.getValue(),
 			aggressiveButton.getValue(), returnToList);
+	}
+
+	private boolean changed() {
+		PatrollerUpdatePayload original = new PatrollerUpdatePayload(data.name(), data.name(), data.skin(), data.slim(),
+			data.pauseSeconds(), data.detectDiameter(), data.stareSeconds(), data.nameVisible(), data.showHeldItems(),
+			data.patrolling(), data.aggressive(), false);
+		return !collect(false).equals(original);
 	}
 
 	private static int parse(EditBox box, int fallback) {
@@ -171,29 +359,48 @@ public class PatrollerSettingsScreen extends Screen {
 
 	private void save() {
 		ClientPlayNetworking.send(collect(data.fromList()));
-		onClose();
+		close();
 	}
 
 	private void record() {
 		ClientPlayNetworking.send(collect(false));
 		ClientPlayNetworking.send(new PatrollerListActionPayload(PatrollerListActionPayload.Action.RECORD,
 			nameBox.getValue().trim()));
-		onClose();
+		close();
 	}
 
 	private void remove() {
+		long now = Util.getMillis();
+		if (now >= removeConfirmUntil) {
+			removeConfirmUntil = now + CONFIRM_MS;
+			return;
+		}
 		ClientPlayNetworking.send(new PatrollerListActionPayload(PatrollerListActionPayload.Action.REMOVE, data.name()));
 		if (!data.fromList()) {
-			onClose();
+			close();
 		}
 	}
 
-	private void cancel() {
+	private void back() {
+		long now = Util.getMillis();
+		if (changed() && now >= backConfirmUntil) {
+			backConfirmUntil = now + CONFIRM_MS;
+			return;
+		}
 		if (data.fromList()) {
 			ClientPlayNetworking.send(new PatrollerListActionPayload(PatrollerListActionPayload.Action.REFRESH, ""));
 		} else {
-			onClose();
+			close();
 		}
+	}
+
+	private void close() {
+		super.onClose();
+	}
+
+	@Override
+	public void onClose() {
+		back();
 	}
 
 	@Override

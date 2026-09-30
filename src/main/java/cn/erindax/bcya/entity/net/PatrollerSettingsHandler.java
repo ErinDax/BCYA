@@ -11,7 +11,9 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -38,6 +40,11 @@ public final class PatrollerSettingsHandler {
 	}
 
 	public static void openSettings(ServerPlayer player, PatrollerEntity patroller, boolean fromList) {
+		List<String> skins = TextureStore.SKINS.listAvailable();
+		for (String skin : skins) {
+			TextureStore.SKINS.sendTo(player, skin);
+		}
+		BlockPos pos = patroller.blockPosition();
 		ServerPlayNetworking.send(player, new PatrollerSettingsPayload(
 			patroller.getId(),
 			patroller.getPatrolName(),
@@ -51,16 +58,26 @@ public final class PatrollerSettingsHandler {
 			patroller.isPatrolling(),
 			patroller.isHostile(),
 			patroller.getWaypoints().size(),
-			TextureStore.SKINS.listAvailable(),
-			fromList));
+			skins,
+			fromList,
+			patroller.level().dimension().location().toString(),
+			pos.getX(), pos.getY(), pos.getZ()));
 	}
 
 	public static void openList(ServerPlayer player) {
 		List<PatrollerListPayload.Entry> entries = new ArrayList<>();
+		Set<String> skins = new HashSet<>();
 		for (PatrollerEntity p : Patrollers.all(player.server)) {
 			BlockPos pos = p.blockPosition();
 			entries.add(new PatrollerListPayload.Entry(p.getPatrolName(), p.level().dimension().location().toString(),
-				pos.getX(), pos.getY(), pos.getZ(), p.getWaypoints().size(), p.getSkinName()));
+				pos.getX(), pos.getY(), pos.getZ(), p.getWaypoints().size(), p.getSkinName(), p.isPatrolling(),
+				p.isHostile()));
+			if (!p.getSkinName().isEmpty()) {
+				skins.add(p.getSkinName());
+			}
+		}
+		for (String skin : skins) {
+			TextureStore.SKINS.sendTo(player, skin);
 		}
 		entries.sort((a, b) -> a.name().compareToIgnoreCase(b.name()));
 		ServerPlayNetworking.send(player, new PatrollerListPayload(entries));

@@ -11,11 +11,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 public record PatrollerListPayload(List<Entry> entries) implements CustomPacketPayload {
 
-	public record Entry(String name, String dimension, int x, int y, int z, int waypoints, String skin) {
+	public record Entry(String name, String dimension, int x, int y, int z, int waypoints, String skin,
+			boolean patrolling, boolean hostile) {
 
 		private static Entry read(FriendlyByteBuf buf) {
 			return new Entry(buf.readUtf(), buf.readUtf(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
-				buf.readVarInt(), buf.readUtf());
+				buf.readVarInt(), buf.readUtf(), buf.readBoolean(), buf.readBoolean());
 		}
 
 		private void write(FriendlyByteBuf buf) {
@@ -26,6 +27,8 @@ public record PatrollerListPayload(List<Entry> entries) implements CustomPacketP
 			buf.writeVarInt(z);
 			buf.writeVarInt(waypoints);
 			buf.writeUtf(skin);
+			buf.writeBoolean(patrolling);
+			buf.writeBoolean(hostile);
 		}
 	}
 

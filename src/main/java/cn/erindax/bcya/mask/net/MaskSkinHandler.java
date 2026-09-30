@@ -1,5 +1,6 @@
 package cn.erindax.bcya.mask.net;
 
+import cn.erindax.bcya.item.MaskItem;
 import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.manage.WandWhitelist;
 import cn.erindax.bcya.mask.MaskRulesState;
@@ -34,7 +35,9 @@ public final class MaskSkinHandler {
 	public static void sendAllTo(ServerPlayer player) {
 		MaskRulesState state = MaskRulesState.get(player.server);
 		for (MaskSkinOverride override : state.getSkinOverrides()) {
-			TextureStore.SKINS.sendTo(player, override.skin());
+			if (!override.skin().isEmpty()) {
+				TextureStore.SKINS.sendTo(player, override.skin());
+			}
 		}
 		ServerPlayNetworking.send(player, state.toSkinPayload());
 	}
@@ -54,10 +57,13 @@ public final class MaskSkinHandler {
 		MinecraftServer server = player.server;
 		List<MaskSkinOverride> accepted = new ArrayList<>();
 		for (MaskSkinOverride override : payload.overrides()) {
-			if (!ModItems.MASKS.contains(BuiltInRegistries.ITEM.get(override.mask()))) {
+			if (!(BuiltInRegistries.ITEM.get(override.mask()) instanceof MaskItem mask) || !ModItems.MASKS.contains(mask)) {
 				continue;
 			}
 			if (override.skin().isEmpty()) {
+				if (override.slim() != mask.isSlimModel()) {
+					accepted.add(override);
+				}
 				continue;
 			}
 			if (TextureStore.SKINS.load(override.skin(), true) == null) {
@@ -73,7 +79,9 @@ public final class MaskSkinHandler {
 
 		List<ServerPlayer> players = server.getPlayerList().getPlayers();
 		for (MaskSkinOverride override : accepted) {
-			TextureStore.SKINS.sendToAll(players, override.skin());
+			if (!override.skin().isEmpty()) {
+				TextureStore.SKINS.sendToAll(players, override.skin());
+			}
 		}
 		MaskSkinSyncPayload sync = state.toSkinPayload();
 		for (ServerPlayer target : players) {

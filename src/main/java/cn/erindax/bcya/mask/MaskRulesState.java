@@ -87,7 +87,7 @@ public class MaskRulesState extends SavedData {
 			CompoundTag entry = skins.getCompound(i);
 			ResourceLocation mask = ResourceLocation.tryParse(entry.getString(TAG_MASK));
 			String skin = entry.getString(TAG_SKIN);
-			if (mask != null && !skin.isEmpty()) {
+			if (mask != null) {
 				state.skinOverrides.put(mask, new MaskSkinOverride(mask, skin, entry.getBoolean(TAG_SLIM)));
 			}
 		}
@@ -225,9 +225,7 @@ public class MaskRulesState extends SavedData {
 	public void setSkinOverrides(List<MaskSkinOverride> overrides) {
 		skinOverrides.clear();
 		for (MaskSkinOverride override : overrides) {
-			if (!override.skin().isEmpty()) {
-				skinOverrides.put(override.mask(), override);
-			}
+			skinOverrides.put(override.mask(), override);
 		}
 		setDirty();
 	}

@@ -29,21 +29,24 @@ public final class MaskSkins {
 		}
 		MaskSkinOverride override = overrides.get(BuiltInRegistries.ITEM.getKey(mask));
 		if (override == null) {
-			return BUILTIN.computeIfAbsent(mask, m -> new PlayerSkin(
-				m.getSkinTexture(), null, null, null,
-				m.isSlimModel() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE,
-				true));
+			return builtin(mask);
 		}
-		if (!RemoteTextures.has(TextureStore.SKINS.kind(), override.skin())) {
-			return BUILTIN.computeIfAbsent(mask, m -> new PlayerSkin(
-				m.getSkinTexture(), null, null, null,
-				m.isSlimModel() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE,
-				true));
+		PlayerSkin.Model model = override.slim() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE;
+		PlayerSkin skin;
+		if (override.skin().isEmpty()) {
+			skin = new PlayerSkin(mask.getSkinTexture(), null, null, null, model, true);
+		} else if (RemoteTextures.has(TextureStore.SKINS.kind(), override.skin())) {
+			skin = new PlayerSkin(RemoteTextures.skin(override.skin()), null, null, null, model, true);
+		} else {
+			return builtin(mask);
 		}
-		PlayerSkin skin = new PlayerSkin(RemoteTextures.skin(override.skin()), null, null, null,
-			override.slim() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
 		RESOLVED.put(mask, skin);
 		return skin;
+	}
+
+	private static PlayerSkin builtin(MaskItem mask) {
+		return BUILTIN.computeIfAbsent(mask, m -> new PlayerSkin(m.getSkinTexture(), null, null, null,
+			m.isSlimModel() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true));
 	}
 
 	public static void setOverrides(Collection<MaskSkinOverride> list) {

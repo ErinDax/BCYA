@@ -84,12 +84,18 @@ public class MaskSkinScreen extends Screen {
 		List<MaskSkinOverride> overrides = new ArrayList<>();
 		for (Row row : rows) {
 			String skin = row.skinButton.getValue();
-			if (!skin.isEmpty()) {
-				overrides.add(new MaskSkinOverride(BuiltInRegistries.ITEM.getKey(row.mask), skin, row.armsButton.getValue()));
+			boolean slim = row.armsButton.getValue();
+			if (!skin.isEmpty() || slim != row.mask.isSlimModel()) {
+				overrides.add(new MaskSkinOverride(BuiltInRegistries.ITEM.getKey(row.mask), skin, slim));
 			}
 		}
 		ClientPlayNetworking.send(new MaskSkinUpdatePayload(overrides));
 		onClose();
+	}
+
+	private void remember(MaskItem mask, String skin, boolean slim) {
+		ResourceLocation id = BuiltInRegistries.ITEM.getKey(mask);
+		current.put(id, new MaskSkinOverride(id, skin, slim));
 	}
 
 	@Override
@@ -140,14 +146,18 @@ public class MaskSkinScreen extends Screen {
 				.withValues(skins)
 				.withInitialValue(override == null ? "" : override.skin())
 				.displayOnlyValue()
-				.create(0, 0, SKIN_WIDTH, BUTTON_HEIGHT, Component.empty(), (b, v) -> {});
+				.create(0, 0, SKIN_WIDTH, BUTTON_HEIGHT, Component.empty(), (b, v) -> changed());
 			armsButton = CycleButton.<Boolean>builder(slim -> Component.translatable(
 					slim ? "screen.bcya.patroller.arms_slim" : "screen.bcya.patroller.arms_wide"))
 				.withValues(List.of(false, true))
 				.withInitialValue(override == null ? mask.isSlimModel() : override.slim())
 				.displayOnlyValue()
-				.create(0, 0, ARMS_WIDTH, BUTTON_HEIGHT, Component.empty(), (b, v) -> {});
+				.create(0, 0, ARMS_WIDTH, BUTTON_HEIGHT, Component.empty(), (b, v) -> changed());
 			children = List.of(skinButton, armsButton);
+		}
+
+		private void changed() {
+			remember(mask, skinButton.getValue(), armsButton.getValue());
 		}
 
 		@Override

@@ -280,11 +280,13 @@ public class PatrollerSettingsScreen extends Screen {
 		if (slim) {
 			if (slimModel == null) {
 				slimModel = new PlayerModel<>(minecraft.getEntityModels().bakeLayer(ModelLayers.PLAYER_SLIM), true);
+				slimModel.young = false;
 			}
 			return slimModel;
 		}
 		if (wideModel == null) {
 			wideModel = new PlayerModel<>(minecraft.getEntityModels().bakeLayer(ModelLayers.PLAYER), false);
+			wideModel.young = false;
 		}
 		return wideModel;
 	}

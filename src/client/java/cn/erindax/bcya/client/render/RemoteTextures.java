@@ -6,7 +6,9 @@ import cn.erindax.bcya.skin.TextureStore;
 import com.mojang.blaze3d.platform.NativeImage;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 
 import net.minecraft.client.Minecraft;
@@ -54,7 +56,11 @@ public final class RemoteTextures {
 	}
 
 	public static void put(String kind, String name, byte[] png) {
-		Entry entry = new Entry(BcyaMod.id("remote/" + kind + "/" + name.toLowerCase()), png);
+		if (!TextureStore.isValidName(name)) {
+			return;
+		}
+		Entry entry = new Entry(BcyaMod.id("remote/" + kind + "/" + HexFormat.of().formatHex(
+			name.getBytes(StandardCharsets.UTF_8))), png);
 		if (upload(Minecraft.getInstance().getTextureManager(), kind, entry)) {
 			TEXTURES.put(key(kind, name), entry);
 			MaskSkins.invalidate();
@@ -99,9 +105,7 @@ public final class RemoteTextures {
 	}
 
 	private static boolean validSize(String kind, int width, int height) {
-		if (kind.equals(TextureStore.SKINS.kind())) {
-			return width == 64 && (height == 64 || height == 32);
-		}
-		return width == height && width >= 8 && width <= 128;
+		TextureStore store = kind.equals(TextureStore.SKINS.kind()) ? TextureStore.SKINS : TextureStore.KEYS;
+		return store.validSize(width, height);
 	}
 }

@@ -21,6 +21,8 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
+import java.util.List;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -280,8 +282,12 @@ public final class LockHandler {
 		if (!player.hasPermissions(2) || !(held.getItem() instanceof KeyItem)) {
 			return;
 		}
+		List<String> skins = TextureStore.KEYS.listAvailable();
+		for (String skin : skins) {
+			TextureStore.KEYS.sendTo(player, skin);
+		}
 		ServerPlayNetworking.send(player, new KeySkinListPayload(hand == InteractionHand.MAIN_HAND,
-			KeyItem.skinOf(held), TextureStore.KEYS.listAvailable()));
+			KeyItem.skinOf(held), skins));
 	}
 
 	private static void onKeySkinSelect(ServerPlayer player, KeySkinSelectPayload payload) {

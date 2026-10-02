@@ -5,6 +5,7 @@ import cn.erindax.bcya.item.ModItems;
 import cn.erindax.bcya.manage.WandWhitelist;
 import cn.erindax.bcya.mask.MaskRulesState;
 import cn.erindax.bcya.mask.net.MaskRulesHandler;
+import cn.erindax.bcya.skin.TextureStore;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -13,6 +14,7 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -23,6 +25,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -79,11 +82,32 @@ public final class BcyaCommands {
 	private static int reload(CommandSourceStack source) {
 		if (!WandWhitelist.reload()) {
 			source.sendFailure(Component.translatable("commands.bcya.reload.failed", WandWhitelist.file().toString()));
-			return 0;
+		} else {
+			int count = WandWhitelist.size();
+			source.sendSuccess(() -> Component.translatable("commands.bcya.reload.done", count), true);
 		}
-		int count = WandWhitelist.size();
-		source.sendSuccess(() -> Component.translatable("commands.bcya.reload.done", count), true);
+		List<ServerPlayer> players = source.getServer().getPlayerList().getPlayers();
+		int keys = reloadTextures(source, TextureStore.KEYS, players);
+		int skins = reloadTextures(source, TextureStore.SKINS, players);
+		source.sendSuccess(() -> Component.translatable("commands.bcya.reload.textures", keys, skins), true);
 		return 1;
+	}
+
+	private static int reloadTextures(CommandSourceStack source, TextureStore store, List<ServerPlayer> players) {
+		store.refresh();
+		TextureStore.Scan scan = store.scan();
+		for (String name : scan.names()) {
+			store.sendToAll(players, name);
+		}
+		for (TextureStore.Problem problem : scan.problems()) {
+			Component reason = problem.reason().equals("size")
+				? Component.translatable("commands.bcya.reload.texture." + store.kind() + "_size", problem.width(),
+					problem.height())
+				: Component.translatable("commands.bcya.reload.texture." + problem.reason(), TextureStore.MAX_NAME);
+			source.sendFailure(Component.translatable("commands.bcya.reload.texture.skipped",
+				store.directory().getFileName() + "/" + problem.file(), reason));
+		}
+		return scan.names().size();
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> maskRuleToggle(String literal,

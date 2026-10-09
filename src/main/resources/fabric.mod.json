@@ -3,7 +3,7 @@
   "id": "bcya",
   "version": "${version}",
   "name": "BCYA",
-  "description": "动物面具：佩戴后替换皮肤、隐藏名牌，兼容 Simple Voice Chat 变声；魔术手杖可随机互换所有玩家的面具。",
+  "description": "动物面具：佩戴后替换皮肤、隐藏名牌，兼容 Simple Voice Chat 变声；可用 /BCYA mask swap 指令随机互换所有玩家的面具。",
   "authors": [
     "202037994@qq.com"
   ],

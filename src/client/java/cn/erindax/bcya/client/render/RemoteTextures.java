@@ -105,7 +105,6 @@ public final class RemoteTextures {
 	}
 
 	private static boolean validSize(String kind, int width, int height) {
-		TextureStore store = kind.equals(TextureStore.SKINS.kind()) ? TextureStore.SKINS : TextureStore.KEYS;
-		return store.validSize(width, height);
+		return kind.equals(TextureStore.SKINS.kind()) && TextureStore.SKINS.validSize(width, height);
 	}
 }

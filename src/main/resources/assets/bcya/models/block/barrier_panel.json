@@ -1,6 +1,0 @@
-{
-	"parent": "bcya:block/template_panel",
-	"textures": {
-		"all": "bcya:block/barrier_panel"
-	}
-}

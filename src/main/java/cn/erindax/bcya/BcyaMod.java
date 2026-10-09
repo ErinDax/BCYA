@@ -1,19 +1,15 @@
 package cn.erindax.bcya;
 
-import cn.erindax.bcya.block.ModBlocks;
 import cn.erindax.bcya.card.CardHandler;
 import cn.erindax.bcya.check.CheckHandler;
 import cn.erindax.bcya.command.BcyaCommands;
 import cn.erindax.bcya.command.DifficultyArgumentType;
 import cn.erindax.bcya.command.SkillArgumentType;
-import cn.erindax.bcya.dance.DanceManager;
 import cn.erindax.bcya.entity.ModEntities;
 import cn.erindax.bcya.entity.PatrolRecorder;
 import cn.erindax.bcya.entity.PatrollerEntity;
 import cn.erindax.bcya.entity.net.PatrollerSettingsHandler;
-import cn.erindax.bcya.item.ModComponents;
 import cn.erindax.bcya.item.ModItems;
-import cn.erindax.bcya.lock.LockHandler;
 import cn.erindax.bcya.manage.WandWhitelist;
 import cn.erindax.bcya.mask.MaskRulesState;
 import cn.erindax.bcya.mask.net.MaskRulesHandler;
@@ -21,7 +17,6 @@ import cn.erindax.bcya.mask.net.MaskSkinHandler;
 import cn.erindax.bcya.mask.slot.MaskSlotEvents;
 import cn.erindax.bcya.mask.slot.ModAttachments;
 import cn.erindax.bcya.mask.slot.net.MaskSlotHandler;
-import cn.erindax.bcya.music.MusicHandler;
 import cn.erindax.bcya.skin.TexturePayload;
 import cn.erindax.bcya.skin.TextureStore;
 import cn.erindax.bcya.skywalk.Skywalk;
@@ -46,9 +41,7 @@ public class BcyaMod implements ModInitializer {
 	public void onInitialize() {
 		SkillArgumentType.register();
 		DifficultyArgumentType.register();
-		ModComponents.init();
 		ModAttachments.init();
-		ModBlocks.init();
 		ModItems.init();
 		ModEntities.init();
 		MaskSlotEvents.init();
@@ -61,11 +54,8 @@ public class BcyaMod implements ModInitializer {
 		MaskSlotHandler.init();
 		PatrollerSettingsHandler.init();
 		PatrolRecorder.init();
-		LockHandler.init();
-		MusicHandler.init();
 		CardHandler.init();
 		CheckHandler.init();
-		DanceManager.init();
 		Skywalk.init();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -78,7 +68,6 @@ public class BcyaMod implements ModInitializer {
 			}
 		});
 		TextureStore.SKINS.ensureDirectory();
-		TextureStore.KEYS.ensureDirectory();
 		WandWhitelist.reload();
 		BcyaCommands.register();
 

@@ -4,16 +4,11 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "AbstractClientPlayerSkinMixin",
-    "ClientLevelMarkerParticleMixin",
     "CreativeInventoryMaskSlotMixin",
     "InventoryScreenMaskSlotMixin",
-    "ItemInHandLayerMixin",
     "PlayerRendererNameTagMixin",
     "PlayerSkywalkMixin",
-    "RemotePlayerSkywalkMixin",
-    "SoundBufferLibraryMixin",
-    "SoundEngineAccessor",
-    "SoundManagerAccessor"
+    "RemotePlayerSkywalkMixin"
   ],
   "injectors": {
     "defaultRequire": 1

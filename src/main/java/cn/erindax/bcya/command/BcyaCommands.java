@@ -56,7 +56,7 @@ public final class BcyaCommands {
 			.then(maskRuleToggle(MASKER_HBL, MaskRulesState.Rule.SWAP_BLACKLIST, "commands.bcya.masker_hbl")
 				.requires(source -> source.hasPermission(2)))
 			.then(MaskOriginCommands.origin())
-			.then(WandCommands.wand())
+			.then(MaskCommands.mask())
 			.then(PatrolCommands.build().requires(source -> source.hasPermission(2)))
 			.then(InvestigatorCommands.build().requires(source -> source.hasPermission(2)))
 			.then(Commands.literal(RELOAD)
@@ -67,7 +67,6 @@ public final class BcyaCommands {
 			.then(CheckCommands.kp())
 			.then(CheckCommands.roll())
 			.then(CheckCommands.log())
-			.then(DanceCommands.dance())
 			.then(SkywalkCommands.skywalk());
 	}
 
@@ -86,10 +85,11 @@ public final class BcyaCommands {
 			int count = WandWhitelist.size();
 			source.sendSuccess(() -> Component.translatable("commands.bcya.reload.done", count), true);
 		}
-		List<ServerPlayer> players = source.getServer().getPlayerList().getPlayers();
-		int keys = reloadTextures(source, TextureStore.KEYS, players);
+		MinecraftServer server = source.getServer();
+		List<ServerPlayer> players = server.getPlayerList().getPlayers();
+		players.forEach(player -> server.getCommands().sendCommands(player));
 		int skins = reloadTextures(source, TextureStore.SKINS, players);
-		source.sendSuccess(() -> Component.translatable("commands.bcya.reload.textures", keys, skins), true);
+		source.sendSuccess(() -> Component.translatable("commands.bcya.reload.textures", skins), true);
 		return 1;
 	}
 

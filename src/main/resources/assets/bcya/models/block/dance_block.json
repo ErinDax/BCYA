@@ -1,8 +1,0 @@
-{
-  "parent": "minecraft:block/cube_bottom_top",
-  "textures": {
-    "top": "bcya:block/dance_block_top",
-    "bottom": "bcya:block/dance_block_side",
-    "side": "bcya:block/dance_block_side"
-  }
-}

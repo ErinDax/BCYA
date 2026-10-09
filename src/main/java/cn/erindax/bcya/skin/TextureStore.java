@@ -28,13 +28,10 @@ import org.jetbrains.annotations.Nullable;
 
 public final class TextureStore {
 
-	public static final TextureStore SKINS = new TextureStore("skins", true);
-	public static final TextureStore KEYS = new TextureStore("keys", false);
+	public static final TextureStore SKINS = new TextureStore("skins");
 
 	public static final int MAX_BYTES = 512 * 1024;
 	public static final int MAX_NAME = 32;
-	public static final int MIN_KEY_SIZE = 8;
-	public static final int MAX_KEY_SIZE = 128;
 
 	private static final String EXTENSION = ".png";
 	private static final Pattern NAME = Pattern.compile("[\\p{L}\\p{N}_\\-]([\\p{L}\\p{N}_\\- ]{0,30}[\\p{L}\\p{N}_\\-])?");
@@ -51,13 +48,11 @@ public final class TextureStore {
 	}
 
 	private final String kind;
-	private final boolean skins;
 	private final Map<String, Cached> cache = new ConcurrentHashMap<>();
 	private final Set<String> warned = ConcurrentHashMap.newKeySet();
 
-	private TextureStore(String kind, boolean skins) {
+	private TextureStore(String kind) {
 		this.kind = kind;
-		this.skins = skins;
 	}
 
 	public String kind() {
@@ -73,10 +68,7 @@ public final class TextureStore {
 	}
 
 	public boolean validSize(int width, int height) {
-		if (skins) {
-			return width == 64 && (height == 64 || height == 32);
-		}
-		return width == height && width >= MIN_KEY_SIZE && width <= MAX_KEY_SIZE;
+		return width == 64 && (height == 64 || height == 32);
 	}
 
 	@Nullable

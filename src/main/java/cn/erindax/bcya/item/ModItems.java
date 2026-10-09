@@ -1,11 +1,8 @@
 package cn.erindax.bcya.item;
 
 import cn.erindax.bcya.BcyaMod;
-import cn.erindax.bcya.block.ModBlocks;
-import cn.erindax.bcya.lock.LockType;
 
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 
 import java.util.List;
 
@@ -13,9 +10,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
@@ -38,15 +33,6 @@ public final class ModItems {
 		CAT_MASK, FOX_MASK, GOAT_MASK, RABBIT_MASK, DOG_MASK, WOLF_MASK, BEAR_MASK, LOGIC_CAT_MASK, CALICO_CAT_MASK,
 		BLACK_CAT_COLLAR, WAITER_MASK);
 
-	public static final Item MAGIC_WAND = register("magic_wand",
-		new MagicWandItem(new Item.Properties()
-			.stacksTo(1)
-			.rarity(Rarity.EPIC)));
-
-	public static final Item BARRIER_PANEL = register("barrier_panel",
-		new BlockItem(ModBlocks.BARRIER_PANEL, new Item.Properties()
-			.rarity(Rarity.EPIC)));
-
 	public static final Item CAT_EYE = register("cat_eye",
 		new CatEyeItem(new Item.Properties()
 			.stacksTo(1)
@@ -55,27 +41,6 @@ public final class ModItems {
 	public static final Item AGATE = register("agate",
 		new AgateItem(new Item.Properties()
 			.stacksTo(16)
-			.rarity(Rarity.RARE)));
-
-	public static final Item KEY = register("key",
-		new KeyItem(new Item.Properties()
-			.stacksTo(16)));
-
-	public static final Item PASSWORD_LOCK = register("password_lock",
-		new LockItem(LockType.PASSWORD, new Item.Properties()
-			.stacksTo(16)));
-
-	public static final Item KEY_LOCK = register("key_lock",
-		new LockItem(LockType.KEY, new Item.Properties()
-			.stacksTo(16)));
-
-	public static final Item MUSIC_NOTE = register("music_note",
-		new MusicNoteItem(new Item.Properties()
-			.stacksTo(1)
-			.rarity(Rarity.RARE)));
-
-	public static final Item DANCE_BLOCK = register("dance_block",
-		new BlockItem(ModBlocks.DANCE_BLOCK, new Item.Properties()
 			.rarity(Rarity.RARE)));
 
 	public static final Item ID_CARD = register("id_card",
@@ -89,16 +54,9 @@ public final class ModItems {
 			.icon(() -> new ItemStack(CAT_MASK))
 			.displayItems((parameters, output) -> {
 				MASKS.forEach(output::accept);
-				output.accept(MAGIC_WAND);
 				output.accept(CAT_EYE);
 				output.accept(AGATE);
-				output.accept(KEY);
-				output.accept(PASSWORD_LOCK);
-				output.accept(KEY_LOCK);
-				output.accept(MUSIC_NOTE);
 				output.accept(ID_CARD);
-				output.accept(BARRIER_PANEL);
-				output.accept(DANCE_BLOCK);
 			})
 			.build());
 
@@ -122,6 +80,5 @@ public final class ModItems {
 	}
 
 	public static void init() {
-		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.OP_BLOCKS).register(entries -> entries.accept(BARRIER_PANEL));
 	}
 }
